@@ -1,0 +1,8 @@
+{
+  "metadata": {
+    "key": "page:https://learn.microsoft.com/en-us/ssms/solution/change-the-default-location-for-projects",
+    "created": 1769892364.5468721,
+    "ttl": 604800
+  },
+  "data": "Table of contents Exit editor mode Ask Learn Ask Learn Focus mode Table of contents Read in English Add Add to plan Edit Share via Facebook x.com LinkedIn Email Print Note Access to this page requires authorization. You can try signing in or changing directories . Access to this page requires authorization. You can try changing directories . Change the default location for projects Feedback Summarize this article for me Applies to: SQL Server Azure SQL Database Azure SQL Managed Instance Azure Synapse Analytics Analytics Platform System (PDW) The default location for files and projects is the SQL Server Management Studio Projects folder in your My Documents folder. Change the default location Change the default location by opening or saving a file or project from another location. SQL Server Management Studio stores the location of the previously opened project and uses it for the next opening or saving of a project. Related content Solution Explorer (SQL Server Management Studio) Feedback Was this page helpful? Yes No No Need help with this topic? Want to try using Ask Learn to clarify or guide you through this topic? Ask Learn Ask Learn Suggest a fix? Additional resources Last updated on 2025-12-01"
+}

@@ -1,0 +1,39 @@
+{
+  "metadata": {
+    "key": "search:papers:6:\"amortized costs\" research paper",
+    "created": 1769897053.269399,
+    "ttl": 86400
+  },
+  "data": [
+    {
+      "url": "https://dl.acm.org/doi/10.1145/3571260",
+      "title": "A Calculus for Amortized Expected Runtimes",
+      "snippet": "This research paper develops a calculus for reasoning about amortized ... We give a variant of the pairing heaps that achieves the following amortized costs"
+    },
+    {
+      "url": "https://www.researchgate.net/publication/360001169_Creating_value_via_RD_marketing_costs_and_financial_matters",
+      "title": "Creating value via R&D, marketing costs and financial ...",
+      "snippet": "... Research paper. 1. Introduction. The economy of Iran has witnessed a drastic ... amortization costs. This, per se, has increased financial risks in the"
+    },
+    {
+      "url": "https://arxiv.org/html/2405.21015v2",
+      "title": "The rising costs of training frontier AI models",
+      "snippet": "## 5 Conclusion\n\nIn this paper we used three approaches to analyze the cost of training ML models at the frontier. The first two approaches—one based on hardware purchase prices and energy costs, the other based on cloud rental prices—indicate that the amortized cost of compute for these training runs has grown by around 2.4x per year (90% CI: 2.0x to 2.9x) since 2016. This shows the large role of investment in driving AI progress.\n\nBreaking down the total amortized model development cost for selected frontier models (GPT-3, OPT-175B, GPT-4 and Gemini Ultra), we found that R&D staff are a major component, making up 29–49% of the total. This motivates further research on the scaling of R&D labor with computing power. [...] The costs of training frontier AI models have grown dramatically in recent years, but there is limited public data on the magnitude and growth of these expenses. This paper develops a detailed cost model to address this gap, estimating training costs using three approaches that account for hardware, energy, cloud rental, and staff expenses. The analysis reveals that the amortized cost to train the most compute-intensive models has grown precipitously at a rate of per year since 2016 (90% CI: to ). For key frontier models, such as GPT-4 and Gemini, the most significant expenses are AI accelerator chips and staff costs, each costing tens of millions of dollars. Other notable costs include server components (15-22%), cluster-level interconnect (9-13%), and energy consumption (2-6%). If the [...] ### 3.3 Hardware acquisition costs are one to two orders of magnitude higher than amortized costs\n\nIt’s important to distinguish the amortized cost of the hardware used for training, which is spread over the useful lifetime of the hardware, and the acquisition cost of purchasing that hardware outright. The choice of which cost to consider depends on the purpose of the analysis. Amortized costs are more relevant for understanding the economics of training and deploying models over an extended period, while acquisition costs give a sense of the capital barriers to entry and financial risks involved in developing such models."
+    },
+    {
+      "url": "https://www.researchgate.net/publication/390295318_Amortized_Cost_and_Impairment_-_An_Application",
+      "title": "(PDF) Amortized Cost and Impairment – An Application",
+      "snippet": "The amortized cost of a financial asset or financial liability is the amount at which it is measured on initial recognition,"
+    },
+    {
+      "url": "https://www.researchgate.net/publication/228231894_Fair_Value_Accounting_for_Financial_Instruments_Does_it_Improve_the_Association_Between_Bank_Leverage_and_Credit_Risk",
+      "title": "(PDF) Fair Value Accounting for Financial Instruments",
+      "snippet": "... cost accounting model allowed financial institutions to hide credit ... This thesis investigates two aspects of credit risk measurement"
+    },
+    {
+      "url": "https://www.researchgate.net/profile/Keyvan-Kiani-5/publication/367964567_Generalized_games_and_applications_in_economics_and_finance_games_with_shared_constraint_stress_tests_and_bank_regulation/links/63dea4a8c465a873a28be496/Generalized-games-and-applications-in-economics-and-finance-games-with-shared-constraint-stress-tests-and-bank-regulation.pdf",
+      "title": "games with shared constraint, stress tests and bank ...",
+      "snippet": "In the third part of the dissertation, we extend the second part: we study the case of perfectly ... In this PhD thesis, we will focus on a"
+    }
+  ]
+}

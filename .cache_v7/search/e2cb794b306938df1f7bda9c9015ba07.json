@@ -1,0 +1,39 @@
+{
+  "metadata": {
+    "key": "search:forums:6:\"amortized costs\" limitations problems",
+    "created": 1769897052.8813171,
+    "ttl": 86400
+  },
+  "data": [
+    {
+      "url": "https://stackoverflow.com/questions/200384/what-is-constant-amortized-time",
+      "title": "What is Constant Amortized Time? - algorithm",
+      "snippet": "Share\n\nImprove this answer\n\nedited Dec 22, 2021 at 15:00\n\nanswered Sep 4, 2019 at 9:14\n\nLonnie Best\n\n11.6k1515 gold badges6969 silver badges113113 bronze badges\n\n1\n\nThe explanations above apply to Aggregate Analysis, the idea of taking \"an average\" over multiple operations. I am not sure how they apply to Bankers-method or the Physicists Methods of Amortized analysis.\n\nNow. I am not exactly sure of the correct answer. But it would have to do with the principle condition of the both Physicists+Banker's methods:\n\n(Sum of amortized-cost of operations) >= (Sum of actual-cost of operations).\n\nThe chief difficulty that I face is that given that Amortized-asymptotic costs of operations differ from the normal-asymptotic-cost, I am not sure how to rate the significance of amortized-costs. [...] That is when somebody gives my an amortized-cost, I know its not the same as normal-asymptotic cost What conclusions am I to draw from the amortized-cost then?\n\nSince we have the case of some operations being overcharged while other operations are undercharged, one hypothesis could be that quoting amortized-costs of individual operations would be meaningless.\n\nFor eg: For a fibonacci heap, quoting amortized cost of just Decreasing-Key to be O(1) is meaningless since costs are reduced by \"work done by earlier operations in increasing potential of the heap.\"\n\nOR\n\nWe could have another hypothesis that reasons about the amortized-costs as follows: [...] 1. I know that the expensive operation is going to preceded by MULTIPLE LOW-COST operations.\n2. For the sake of analysis, I am going to overcharge some low-cost operations, SUCH THAT THEIR ASYMPTOTIC-COST DOES NOT CHANGE.\n3. With these increased low-cost operations, I can PROVE THAT EXPENSIVE OPERATION has a SMALLER ASYMPTOTIC COST.\n4. Thus I have improved/decreased the ASYMPTOTIC-BOUND of the cost of n operations.\n\nThus amortized-cost analysis + amortized-cost-bounds are now applicable to only the expensive operations. The cheap operations have the same asymptotic-amortized-cost as their normal-asymptotic-cost.\n\nShare\n\nImprove this answer\n\nedited May 10, 2013 at 22:45\n\nanswered May 10, 2013 at 20:38\n\nMisraji\n\n1122 bronze badges\n\n1"
+    },
+    {
+      "url": "https://money.stackexchange.com/questions/114594/amortized-loans-seem-to-benefit-the-bank-more-than-the-customer",
+      "title": "Amortized Loans seem to benefit the bank more than ...",
+      "snippet": "Banks cover that expense by amortizing it against the life of the loan along with other operating expenses (i.e. generating statements,"
+    },
+    {
+      "url": "https://www.reddit.com/r/explainlikeimfive/comments/1nlpjh5/eli5_why_do_we_need_amortized_analysis/",
+      "title": "ELI5: why do we need Amortized analysis?",
+      "snippet": "Most of the time an operation is cheap, but once in a while it's expensive. Worst case: says it's always expensive means too pessimistic."
+    },
+    {
+      "url": "https://softwareengineering.stackexchange.com/questions/208361/difference-between-accounting-and-potential-methods-in-amortized-analysis",
+      "title": "difference between accounting and potential methods in ...",
+      "snippet": "See similar questions with these tags.\n\n The Overflow Blog\n Are you learning with AI? We want to know about it!\n Wanna see a CSS magic trick?\n Featured on Meta\n Results of the January 2026 Community Asks Sprint: Community Badges\n All users on Stack Exchange can now participate in chat\n\n#### Related\n\nDifference between complexity and performance guarantee\n\n4\") What's the difference between the greedy and Hamiltonian methods?\n\nAmortized Analysis? (Worst-case Performance Guarantees)\n\n2\") How to compute amoritized cost for a dynamic array?\n\nclarification about amortized analysis\n\n2\") Is there already a \"Binder\" data-structure?\n\n2\") difference between exponential and logarithmic growth\n\nBest-matching comparative values using all items in array\n\nDifference between Algorithm and Code [...] 52333 silver badges77 bronze badges\n\nAdd a comment   |\n\n1\n\nThe easiest way to understand amortized worst case analysis is to look at it as the average of the worst case performance over a long sequence of calls. A specific call can perform significantly worse or significantly better than the value, but the average of all the calls you make is going to deterministically approach that value.\n\nShare\n\nImprove this answer\n\nanswered Aug 16, 2013 at 1:56\n\nKonstantin Tarashchanskiy\n\n15644 bronze badges\n\nAdd a comment   |\n\nStart asking to get answers\n\nFind the answer to your question by asking.\n\nAsk question\n\nExplore related questions\n\n algorithms\n algorithm-analysis\n\nSee similar questions with these tags. [...] #### Stack Exchange Network\n\nStack Exchange network consists of 183 Q&A communities including Stack Overflow, the largest, most trusted online community for developers to learn, share their knowledge, and build their careers.\n\nVisit Stack Exchange\n\nStack Internal\n\nKnowledge at work\n\nBring the best of human thought and AI automation together at your work.\n\n Explore Stack Internal\n\n# difference between accounting and potential methods in Amortized Analysis\n\nAsk Question\n\nAsked\n\nModified 12 years, 5 months ago\n\nViewed 7k times\n\n6\n\nI was going through the Introduction to Algorithms by Cormen et al.In the chapter titled Amortized Analysis,the difference between accounting and potential methods is given like this"
+    },
+    {
+      "url": "https://www.reddit.com/r/explainlikeimfive/comments/5doah9/eli5_amortization_what_does_that_mean/",
+      "title": "ELI5: Amortization - What does that mean?",
+      "snippet": "When you spread out the cost of an intangible asset (like a patent) over the amount of time it's good for, that's amortization."
+    },
+    {
+      "url": "https://www.reddit.com/r/Accounting/comments/uzyeal/what_is_the_main_benefit_of_capitalisation_of/",
+      "title": "What is the main benefit of capitalisation of costs instead ...",
+      "snippet": "You match the usefulness of the capital item purchase more closely to the revenue generated. A simple example is your Uber Driver business."
+    }
+  ]
+}

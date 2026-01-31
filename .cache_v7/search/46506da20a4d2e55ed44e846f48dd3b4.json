@@ -1,0 +1,39 @@
+{
+  "metadata": {
+    "key": "search:papers:6:\"Marius Cotorobai\" research publications",
+    "created": 1769896744.346705,
+    "ttl": 86400
+  },
+  "data": [
+    {
+      "url": "https://pdfs.semanticscholar.org/3d35/3f4a3ca9aee2345d4d723d6665b78df41427.pdf",
+      "title": "New Systolic Array Algorithms and VLSI Architectures for 1- ...",
+      "snippet": "30.\nChiper, D.F.; Cotorobai, L.-T. A New Approach for a Uniﬁed Architecture for Type IV DCT/DST with an Efﬁcient Incorporation of Obfuscation Technique. Electronics 2021, 10, 1656. [CrossRef] 31.\nChiper, D.F.; Cracan, A. A New VLSI Algorithm for a VLSI Implementation of MDST Using Obfuscation Technique. In Proceedings of the 2022 International Symposium on Electronics and Telecommunications (ISETC), Timisoara, Romania, 10–11 November 2022; pp. 1–4.\n32.\nJen, C.-W.; Hsu, H.-Y. The Design of a Systolic Array with Tags Input. In Proceedings of the 1988 IEEE International Symposium on Circuits and Systems (ISCAS), Espoo, Finland, 7–9 June 1988; Volume 3, pp. 2263–2266.\n33. [...] Chiper, D.F. A Novel VLSI DHT Algorithm for a Highly Modular and Parallel Architecture. IEEE Trans. Circuits Syst. II Express Briefs 2013, 60, 282–286. [CrossRef] 27.\nXie, J.; Meher, P.K.; He, J. Hardware-Efﬁcient Realization of Prime-Length DCT Based on Distributed Arithmetic. IEEE Trans.\nComput. 2013, 62, 1170–1178. [CrossRef] 28.\nKung, S.Y. VLSI Array Processors; Prentice Hall: Hoboken, NJ, USA, 1988; ISBN 978-0-13-942749-7.\n29.\nChiper, D.F.; Cotorobai, L.-T. A Low Complexity Algorithm for the VLSI Implementation of DST Based on Band-Correlation Structures. In Proceedings of the 2019 International Symposium on Signals, Circuits and Systems (ISSCS), Iasi, Romania, 11–12 July 2019; pp. 1–4.\n30. [...] Abstract: In this paper, we present two systolic array algorithms for efﬁcient Very-Large-Scale Integration (VLSI) implementations of the 1-D Modiﬁed Discrete Sine Transform (MDST) using the systolic array architectural paradigm. The new algorithms decompose the computation of the MDST into modular and regular computational structures called pseudo-circular correlation and pseudo-cycle convolution. The two computational structures for pseudo-circular correlation and pseudo-cycle convolution both have the same form. This feature can be exploited to signiﬁcantly reduce the hardware complexity since the two computational structures can be computed on the same linear systolic array. Moreover, the second algorithm can be used to further reduce the hardware complexity by replacing the general"
+    },
+    {
+      "url": "https://www.researchgate.net/institution/Amherst-College/members/9",
+      "title": "Amherst College | Amherst Center, United States |",
+      "snippet": "American Studies/Sexuality, Women's and Gender Studies. Ani Graf ... Marius Cotorobai · Eugene Lee. Department. English"
+    },
+    {
+      "url": "https://www.researchgate.net/publication/375102602_An_Area-Efficient_Unified_VLSI_Architecture_for_Type_IV_DCTDST_Having_an_Efficient_Hardware_Security_with_Low_Overheads",
+      "title": "(PDF) An Area-Efficient Unified VLSI Architecture for Type ...",
+      "snippet": "This paper introduces an efficient solution for designing a unified VLSI implementation for type IV DCT/DST while solving one challenging"
+    },
+    {
+      "url": "https://www.researchgate.net/publication/267988546_Electrical_field_induced_properties_of_nematic_liquid_crystalcopolymer_particles_composite",
+      "title": "(PDF) Electrical field induced properties of nematic liquid crystal ...",
+      "snippet": "Their dimensions were determined by electron microscopy and are in the range 1-2 μm. These particles were mixed by stirring and ultrasound with nematic liquid"
+    },
+    {
+      "url": "https://www.researchgate.net/figure/Achieved-accuracy-of-different-methods-on-WISDM-dataset_tbl4_356465654",
+      "title": "Achieved accuracy of different methods on WISDM dataset.",
+      "snippet": "Achieved accuracy of different methods on WISDM dataset. Federated personalized random forest for human activity recognition. Article."
+    },
+    {
+      "url": "https://www.researchgate.net/profile/Marius-Ghiurea/publication/267988546_Electrical_field_induced_properties_of_nematic_liquid_crystalcopolymer_particles_composite/links/54b65c800cf24eb34f6d102d/Electrical-field-induced-properties-of-nematic-liquid-crystal-copolymer-particles-composite.pdf",
+      "title": "electrical field induced properties of nematic liquid crystal/ ...",
+      "snippet": "by D MANAILA-MAXIMEAN · Cited by 3 — In recent years there have been many studies regarding the design of new liquid crystals and improved liquid crystals composite [1], [2]. In liquid crystal."
+    }
+  ]
+}

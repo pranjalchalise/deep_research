@@ -1,0 +1,8 @@
+{
+  "metadata": {
+    "key": "page:https://www.phoronix.com/news/CachyOS-January-2026",
+    "created": 1769876913.820022,
+    "ttl": 604800
+  },
+  "data": "CachyOS Starts 2026 By Switching To Plasma Login Manager & Live ISO Using Wayland Written by Michael Larabel in Operating Systems on 24 January 2026 at 12:50 PM EST. 43 Comments The Arch Linux powered CachyOS distribution is out with its first new ISO release of 2026. This Linux distribution continues to be quite popular with Linux gamers, enthusiasts craving peak performance, and others for wanting to enjoy a polished Arch Linux desktop experience. CachyOS is kicking off the new year by enhancing their OS installer. CachyOS has made various \"quality of life\" improvements, including making Limine the default bootloader. Installations to Btrfs file-systems will also default to compression level one. The CachyOS ISO has also switched to using KDE's new Plasma Login Manager by default. Plasma Login Manager is replacing SDDM, similar to what's being done with Fedora 44 and other Linux distributions to come. The new CachyOS release is also now defaulting to Wayland rather than X11 -- following moves by upstream desktops such as KDE and GNOME. For those using GNOME, there have been clean-ups to the GNOME package handling. The new CachyOS release also now installs the nouveau-fw package for firmware on older NVIDIA graphics cards to enable VA-API support for Kepler class GPUs. CachyOS also has other fixes and improvements such as resolving some installation issues for Framework laptops with AMD Zen 5 processors. Downloads and more details on the new January 2026 CachyOS ISO release via CachyOS.org . 43 Comments"
+}
