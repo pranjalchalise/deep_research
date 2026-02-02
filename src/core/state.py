@@ -1,8 +1,20 @@
 # src/core/state.py
+"""
+Research Studio v8 State Schema.
+
+New features:
+- Knowledge gap tracking
+- Research trajectory history
+- Dead end tracking for backtracking
+- Source credibility scoring
+- Verified citations with span matching
+- Per-claim confidence scores
+- Multi-agent orchestration state
+"""
 from __future__ import annotations
 
 import operator
-from typing import Dict, List, Optional, TypedDict, Literal
+from typing import Dict, List, Optional, TypedDict, Literal, Any
 from typing_extensions import Annotated
 
 from langgraph.graph import MessagesState
@@ -11,8 +23,6 @@ from langgraph.graph import MessagesState
 # -------------------------
 # Lanes / routing category
 # -------------------------
-# Planner can tag queries with a "lane" to control retrieval behavior.
-# Keep it as a Literal so Pylance + type-checkers are happy.
 Lane = Literal[
     "general",       # broad web (no domain filter)
     "docs",          # official docs
@@ -23,18 +33,49 @@ Lane = Literal[
 ]
 
 
+# -------------------------
+# Query Types
+# -------------------------
+QueryType = Literal[
+    "person",
+    "concept",
+    "technical",
+    "event",
+    "comparison",
+    "organization",
+    "general"
+]
+
+
 # ---------- Planning ----------
 class PlanQuery(TypedDict, total=False):
     qid: str
     query: str
     section: str
-    lane: Lane  # optional, but planner may set it
+    lane: Lane
+    priority: float  # NEW: query priority (0-1)
+
+
+class ResearchQuestion(TypedDict, total=False):
+    """A question to be answered during research."""
+    question: str
+    queries: List[str]
+    target_sources: List[str]  # academic, news, official, etc.
+    confidence_weight: float   # How much this contributes to overall confidence
+
+
+class ResearchTree(TypedDict, total=False):
+    """Hierarchical research plan."""
+    primary: List[ResearchQuestion]    # Must answer
+    secondary: List[ResearchQuestion]  # Should answer
+    tertiary: List[ResearchQuestion]   # Nice to have
 
 
 class Plan(TypedDict, total=False):
     topic: str
     outline: List[str]
     queries: List[PlanQuery]
+    research_tree: ResearchTree  # NEW: hierarchical research plan
 
 
 # ---------- Raw worker outputs (accumulated) ----------
@@ -48,7 +89,7 @@ class RawEvidence(TypedDict, total=False):
     url: str
     title: str
     section: str
-    text: str  # short extracted evidence text
+    text: str
 
 
 # ---------- Normalized artifacts ----------
@@ -57,7 +98,8 @@ class Source(TypedDict, total=False):
     url: str
     title: str
     snippet: str
-    score: float  # optional: ranker can attach
+    score: float
+    credibility: float  # NEW: credibility score
 
 
 class Evidence(TypedDict, total=False):
@@ -73,6 +115,7 @@ class Claim(TypedDict, total=False):
     cid: str  # C1
     section: str
     text: str
+    confidence: float  # NEW: claim confidence
 
 
 class ClaimCitations(TypedDict, total=False):
@@ -87,14 +130,11 @@ class Issue(TypedDict, total=False):
 
 
 # ---------- Entity / Disambiguation ----------
-QueryType = Literal["person", "concept", "technical", "event", "comparison", "organization", "general"]
-
-
 class EntityCandidate(TypedDict, total=False):
     """A possible entity match found during discovery."""
     name: str
     description: str
-    identifiers: List[str]  # unique identifiers (institution, role, url, etc.)
+    identifiers: List[str]
     confidence: float
 
 
@@ -102,57 +142,185 @@ class DiscoveryResult(TypedDict, total=False):
     """Results from the discovery phase."""
     query_type: QueryType
     entity_candidates: List[EntityCandidate]
-    confidence: float  # 0-1, how confident we are about the entity
+    confidence: float
     needs_clarification: bool
-    anchor_terms: List[str]  # terms to include in all subsequent searches
+    anchor_terms: List[str]
+
+
+# ---------- NEW: Iterative Research State ----------
+class KnowledgeGap(TypedDict, total=False):
+    """A gap in research coverage that needs to be filled."""
+    section: str
+    description: str
+    suggested_queries: List[str]
+    priority: float  # 0-1
+    current_confidence: float
+
+
+class TrajectoryStep(TypedDict, total=False):
+    """A single step in the research trajectory."""
+    iteration: int
+    action: str  # "search", "read", "refine", "backtrack"
+    query: str
+    result_summary: str
+    confidence_delta: float
+    timestamp: str
+
+
+class DeadEnd(TypedDict, total=False):
+    """A research path that failed."""
+    query: str
+    reason: str  # "no_results", "irrelevant", "paywall", "low_credibility"
+    iteration: int
+    alternative_tried: bool
+
+
+# ---------- NEW: Source Credibility ----------
+class SourceCredibility(TypedDict, total=False):
+    """Credibility assessment for a source."""
+    sid: str
+    url: str
+    domain_trust: float      # 0-1 based on domain
+    freshness: float         # 0-1 based on publish date
+    authority: float         # 0-1 based on citations, author
+    content_quality: float   # 0-1 based on depth, structure
+    overall: float           # weighted average
+
+
+# ---------- NEW: Citation Verification ----------
+class VerifiedCitation(TypedDict, total=False):
+    """A citation that has been verified against source text."""
+    cid: str
+    eid: str
+    claim_text: str
+    evidence_span: str       # Exact text from source
+    match_score: float       # 0-1 semantic similarity
+    verified: bool
+    cross_validated: bool    # Supported by multiple sources
+    supporting_sids: List[str]
+
+
+# ---------- NEW: Multi-Agent State ----------
+class SubagentAssignment(TypedDict, total=False):
+    """Assignment for a subagent."""
+    subagent_id: str
+    question: str
+    queries: List[str]
+    target_sources: List[str]
+
+
+class SubagentFindings(TypedDict, total=False):
+    """Results from a subagent."""
+    subagent_id: str
+    question: str
+    findings: str  # Compressed findings
+    evidence_ids: List[str]
+    confidence: float
+    iterations_used: int
+    dead_ends: List[DeadEnd]
+
+
+class OrchestratorState(TypedDict, total=False):
+    """State of the orchestrator agent."""
+    phase: str  # "primary_research", "secondary_research", "synthesis"
+    questions_assigned: int
+    questions_completed: int
+    overall_confidence: float
+
+
+# ---------- Research Metadata ----------
+class ResearchMetadata(TypedDict, total=False):
+    """Metadata about the research process."""
+    overall_confidence: float
+    verified_claims: int
+    total_claims: int
+    knowledge_gaps: int
+    sources_used: int
+    research_iterations: int
+    total_searches: int
+    time_elapsed_seconds: float
 
 
 # ---------- Agent State ----------
 class AgentState(MessagesState):
-    # MessagesState already defines:
-    # messages: Annotated[list[BaseMessage], add_messages]
+    """
+    Complete state for the v8 research agent.
 
-    # config knobs
-    depth: Optional[int]          # how many plan queries to generate
-    max_results: Optional[int]    # per query for search
-    round: Optional[int]          # refinement round counter
+    MessagesState already defines:
+    messages: Annotated[list[BaseMessage], add_messages]
+    """
 
-    # === NEW: Discovery & Disambiguation ===
-    original_query: Optional[str]           # the user's original question
-    discovery: Optional[DiscoveryResult]    # results from discovery phase
-    selected_entity: Optional[EntityCandidate]  # user-selected or auto-selected entity
+    # === Config knobs ===
+    depth: Optional[int]
+    max_results: Optional[int]
+    round: Optional[int]
 
-    # Anchor term hierarchy:
-    # - primary_anchor: The main subject (MUST appear in EVERY search query)
-    # - anchor_terms: Context/qualifiers (appear in SOME queries for disambiguation)
-    primary_anchor: Optional[str]           # e.g., "Pranjal Chalise" - always in queries
-    anchor_terms: Optional[List[str]]       # e.g., ["Amherst College"] - context qualifiers
+    # === Discovery & Disambiguation ===
+    original_query: Optional[str]
+    discovery: Optional[DiscoveryResult]
+    selected_entity: Optional[EntityCandidate]
 
-    clarification_request: Optional[str]    # question to ask user
-    human_clarification: Optional[str]      # user's response
+    # Anchor term hierarchy
+    primary_anchor: Optional[str]           # Main subject (in EVERY query)
+    anchor_terms: Optional[List[str]]       # Context qualifiers
 
-    # planning
+    clarification_request: Optional[str]
+    human_clarification: Optional[str]
+
+    # === Planning ===
     plan: Optional[Plan]
 
-    # worker accumulation (reducers)
+    # === NEW: Iterative Research State ===
+    research_iteration: Optional[int]                    # Current iteration (0, 1, 2...)
+    knowledge_gaps: Optional[List[KnowledgeGap]]         # What's still missing
+    research_trajectory: Optional[List[TrajectoryStep]]  # History of actions
+    dead_ends: Optional[List[DeadEnd]]                   # Paths that failed
+    proceed_to_synthesis: Optional[bool]                 # Ready for final synthesis
+    refinement_queries: Optional[List[Dict[str, Any]]]   # Queries for next iteration
+
+    # === NEW: Multi-Agent State ===
+    subagent_assignments: Optional[List[SubagentAssignment]]
+    subagent_findings: Annotated[List[SubagentFindings], operator.add]  # Accumulated
+    orchestrator_state: Optional[OrchestratorState]
+    done_subagents: Annotated[int, operator.add]  # Counter
+
+    # === Worker accumulation ===
     total_workers: Optional[int]
-    done_workers: Annotated[int, operator.add]  # worker returns +1
+    done_workers: Annotated[int, operator.add]
 
     raw_sources: Annotated[List[RawSource], operator.add]
     raw_evidence: Annotated[List[RawEvidence], operator.add]
 
-    # normalized artifacts
+    # === Normalized artifacts ===
     sources: Optional[List[Source]]
     evidence: Optional[List[Evidence]]
 
-    # trust engine
+    # === NEW: Source Credibility ===
+    source_credibility: Optional[Dict[str, SourceCredibility]]
+
+    # === Trust engine ===
     claims: Optional[List[Claim]]
     citations: Optional[List[ClaimCitations]]
     issues: Optional[List[Issue]]
 
-    # controller / assess
+    # === NEW: Citation Verification ===
+    verified_citations: Optional[List[VerifiedCitation]]
+    unverified_claims: Optional[List[str]]  # CIDs without verification
+    hallucination_score: Optional[float]    # % of unsupported claims
+
+    # === NEW: Confidence Scoring ===
+    claim_confidence: Optional[Dict[str, float]]  # CID -> confidence
+    section_confidence: Optional[Dict[str, float]]  # Section -> confidence
+    overall_confidence: Optional[float]
+
+    # === NEW: Cross-Validation ===
+    cross_validated_claims: Optional[List[VerifiedCitation]]
+    single_source_claims: Optional[List[VerifiedCitation]]
+
+    # === Controller / Assess ===
     needs_more: Optional[bool]
     stop: Optional[bool]
 
-    # output
+    # === Output ===
     report: Optional[str]
+    research_metadata: Optional[ResearchMetadata]

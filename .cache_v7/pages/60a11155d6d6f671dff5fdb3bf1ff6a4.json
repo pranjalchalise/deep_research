@@ -1,0 +1,8 @@
+{
+  "metadata": {
+    "key": "page:https://news.ycombinator.com/item?id=42165011",
+    "created": 1769899409.907674,
+    "ttl": 604800
+  },
+  "data": "Hacker News new | past | comments | ask | show | jobs | submit login null08 on Nov 17, 2024 | parent | context | favorite | on: Show HN: Zyme – An Evolvable Programming Language Interesting. I haven't seen much in this space since Lee Spector's \"push\" more than 20 years ago ( http://faculty.hampshire.edu/lspector/push.html ). I did see a mention of Push in the FAQ but it would be very interesting to compare this in detail. If I get it correctly Zyme programs are evolved on the bytecode level whereas Push's stack architecture is designed to be evolvable directly at the syntactic level? A head-to-head comparison / benchmark would be super interesting. conartist6 on Nov 18, 2024 [–] Hampshire represent! I'm also quite interested in this space. Guidelines | FAQ | Lists | API | Security | Legal | Apply to YC | Contact Search:"
+}

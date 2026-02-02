@@ -1,0 +1,39 @@
+{
+  "metadata": {
+    "key": "search:forums:6:\"Lee Spector\" Lee Spector",
+    "created": 1769899404.580286,
+    "ttl": 86400
+  },
+  "data": [
+    {
+      "url": "https://meta.discourse.org/t/math-mode-hard-to-use-with-rich-text-editor/378089",
+      "title": "Math mode hard to use with rich text editor - Support",
+      "snippet": "You can change the Default composition mode site setting to markdown. lspector (Lee Spector) August 11, 2025, 9:33pm"
+    },
+    {
+      "url": "https://news.ycombinator.com/item?id=42165011",
+      "title": "Interesting. I haven't seen much in this space since Lee ...",
+      "snippet": "Interesting. I haven't seen much in this space since Lee Spector's \"push\" more than 20 years ago (http://faculty.hampshire.edu/lspector/push.html)."
+    },
+    {
+      "url": "https://news.ycombinator.com/item?id=2118254",
+      "title": "It seems like it should be much easier to do this in Lisp. In other ...",
+      "snippet": "Lee Spector has made a Forth(like) language, called PushGP, which, in my opinion, handles syntactical correctness in a nice way. There's even a JS"
+    },
+    {
+      "url": "https://meta.discourse.org/t/math-mode-hard-to-use-with-rich-text-editor/378089/14",
+      "title": "Math mode hard to use with rich text editor - #14 by lspector",
+      "snippet": "I think that some basic math formatting that used to work no longer is on my site. For example, Greek characters \\\\alpha, \\\\Alpha, \\\\beta,"
+    },
+    {
+      "url": "https://www.reddit.com/r/TheStaircase/comments/18ygm73/dr_lee_fabricated_evidence/",
+      "title": "Dr. Lee fabricated evidence : r/TheStaircase",
+      "snippet": "Dr. Lee lied and said he tested a towel & it came back positive for blood. Despite none of the physical evidence matching the men on trial ("
+    },
+    {
+      "url": "https://www.reddit.com/r/Music/comments/1otq5wc/curtis_lee_the_story_of_a_1960s_onehit_wonder/",
+      "title": "Curtis Lee: The story of a 1960s one-hit wonder : r/Music",
+      "snippet": "He left the music business in 1969 and went into the construction industry with his father. He died in 2015 at the age of 75."
+    }
+  ]
+}
