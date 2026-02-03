@@ -24,10 +24,12 @@ from src.core.state import (
     DeadEnd,
     TrajectoryStep,
 )
+from src.core.config import V8Config
 from src.tools.tavily import cached_search
 from src.tools.http_fetch import fetch_and_chunk, should_skip_url
 from src.utils.json_utils import parse_json_object, parse_json_array
 from src.utils.llm import create_chat_model
+from src.utils.optimization import deduplicate_queries, deduplicate_query_items
 
 
 # ============================================================================
@@ -66,10 +68,11 @@ def orchestrator_node(state: AgentState) -> Dict[str, Any]:
 
     Responsibilities:
     1. Analyze the research plan
-    2. Assign questions to subagents
+    2. Assign questions to subagents (with query deduplication)
     3. Track overall progress
     4. Decide when to stop or continue
     """
+    cfg = V8Config()
     plan = state.get("plan") or {}
     research_tree = plan.get("research_tree") or {}
     primary_anchor = state.get("primary_anchor", "")
@@ -88,8 +91,25 @@ def orchestrator_node(state: AgentState) -> Dict[str, Any]:
         # Fallback - use plan queries
         assignments = _create_assignments_from_plan(plan, primary_anchor, anchor_terms)
 
+    # === OPTIMIZATION: Query deduplication across all assignments ===
+    total_queries_before = 0
+    total_queries_after = 0
+
+    if cfg.enable_query_dedup:
+        for assignment in assignments:
+            queries = assignment.get("queries", [])
+            total_queries_before += len(queries)
+
+            # Deduplicate queries within each assignment
+            deduped, _ = deduplicate_queries(queries, cfg.query_similarity_threshold)
+            assignment["queries"] = deduped
+            total_queries_after += len(deduped)
+
+        # Also deduplicate across assignments (remove redundant subagents)
+        assignments = _deduplicate_assignments(assignments, cfg.query_similarity_threshold)
+
     # Limit to max subagents
-    max_subagents = state.get("max_subagents", 5)
+    max_subagents = state.get("max_subagents", cfg.max_subagents)
     assignments = assignments[:max_subagents]
 
     orchestrator_state: OrchestratorState = {
@@ -99,13 +119,59 @@ def orchestrator_node(state: AgentState) -> Dict[str, Any]:
         "overall_confidence": state.get("overall_confidence", 0.0),
     }
 
+    # Track deduplication stats
+    dedup_stats = {
+        "queries_before": total_queries_before,
+        "queries_after": total_queries_after,
+        "queries_removed": total_queries_before - total_queries_after,
+    }
+
     return {
         "subagent_assignments": assignments,
         "orchestrator_state": orchestrator_state,
         "total_workers": len(assignments),
         "done_workers": 0,
         "done_subagents": 0,
+        "dedup_stats": dedup_stats,
     }
+
+
+def _deduplicate_assignments(
+    assignments: List[SubagentAssignment],
+    threshold: float = 0.85
+) -> List[SubagentAssignment]:
+    """
+    Deduplicate assignments that have very similar questions.
+    Merges queries from duplicate assignments into the kept one.
+    """
+    if len(assignments) <= 1:
+        return assignments
+
+    unique_assignments: List[SubagentAssignment] = []
+
+    for assignment in assignments:
+        question = assignment.get("question", "")
+        is_duplicate = False
+
+        for existing in unique_assignments:
+            existing_question = existing.get("question", "")
+            # Use the same similarity function
+            from src.utils.optimization import query_similarity
+            sim = query_similarity(question, existing_question)
+
+            if sim >= threshold:
+                is_duplicate = True
+                # Merge queries from duplicate into existing
+                existing_queries = existing.get("queries", [])
+                new_queries = assignment.get("queries", [])
+                merged = existing_queries + [q for q in new_queries if q not in existing_queries]
+                existing["queries"] = merged[:5]  # Cap at 5 queries
+                break
+
+        if not is_duplicate:
+            unique_assignments.append(assignment)
+
+    return unique_assignments
 
 
 def _create_assignments_from_refinement(

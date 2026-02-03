@@ -1,0 +1,8 @@
+{
+  "metadata": {
+    "key": "page:https://ngdc.cncb.ac.cn/openlb/publication/OLB-PM-39606732",
+    "created": 1770088436.913291,
+    "ttl": 604800
+  },
+  "data": "OLB-PM-39606732 - National Genomics Data Center (CNCB-NGDC) OpenLB Open Library of Bioscience Search Advanced Search Source: {{ publication.dataSource }} {{ publication.journalIsoAbbr }} {{ publication.pubDate }} ;{{ publication.journalVolume }} ({{ publication.journalIssue }}) :{{ publication.pagination }}. {{ publication.title }} {{ getAuthors(publication.authors) }} {{ publication.authorString }} 0\" class=\"ui accordion\"> Author Information {{ author.firstName }} {{ author.lastName }}: {{ author.affiliation }} {{ author.identifierSource }} No authors listed. PMID: {{ publication.pmid }} PPRID: {{ publication.pprid }} DOI: {{ publication.doi }} Abstract 中文译文 English No abstract text available. Keywords {{ keyword.trim() }} 0\"> Associated Data {{ dataBank.name }} | {{ dataBank.accession }} 0\"> References {{ reference.citation }} [PMID: {{ refId.split(':')[1] }} ] [PMCID: {{ refId.split(':')[1] }} ] [DOI: {{ refId.split(':')[1] }} ] 0\"> Grants {{ grant.grantId }}/{{ grant.agency }} 0\"> MeSH Term {{ mesh.name }} 0\"> Chemicals {{ chemical.substance }} {{ type }} Links to CNCB-NGDC Resources {{ cncb.db }}: {{ cncb.accession }} ({{ cncb.name }}) Word Cloud Similar Articles 0\" class=\"ui relaxed divided list\"> {{ item.title }} {{ item.journalIsoAbbr }} . {{ item.year || '' }} No available data. Cited By ({{ cited.totalHits || 0 }}) 0\" class=\"ui relaxed divided list\"> {{ item.title }} {{ item.journalIsoAbbr }} . {{ item.year || '' }} 10\" :href=\"host + '/publication?term=CB:' + publication.pmid\"> See all \"Cited by\" articles No available data. No Data Available."
+}

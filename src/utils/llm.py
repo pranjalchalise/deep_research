@@ -201,9 +201,51 @@ def create_chat_model(
     return LLMWrapper(llm, max_retries=max_retries, verbose=verbose)
 
 
+def create_model_for_node(
+    node_name: str,
+    temperature: float = 0.2,
+    max_retries: int = 3,
+    verbose: bool = False,
+    **kwargs: Any,
+) -> LLMWrapper:
+    """
+    Create a ChatOpenAI model using the configured model for a specific node.
+
+    This enables model tiering - using cheaper models for simple tasks
+    and smarter models for critical tasks.
+
+    Args:
+        node_name: Name of the node (e.g., "analyzer", "planner", "writer")
+        temperature: Temperature setting
+        max_retries: Number of retries on transient failures
+        verbose: Print retry messages
+        **kwargs: Additional arguments passed to ChatOpenAI
+
+    Returns:
+        LLMWrapper instance with retry logic
+
+    Model routing (from V8Config):
+        - gpt-4o-mini: analyzer, discovery, orchestrator, subagent, claims, cite, credibility
+        - gpt-4o: planner, writer (critical nodes)
+    """
+    from src.core.config import V8Config
+
+    cfg = V8Config()
+    model = cfg.get_model_for_node(node_name)
+
+    return create_chat_model(
+        model=model,
+        temperature=temperature,
+        max_retries=max_retries,
+        verbose=verbose,
+        **kwargs,
+    )
+
+
 __all__ = [
     "retry_with_backoff",
     "is_retryable_error",
     "LLMWrapper",
     "create_chat_model",
+    "create_model_for_node",
 ]

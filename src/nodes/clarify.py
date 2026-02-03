@@ -1,397 +1,303 @@
 # src/nodes/clarify.py
 """
-Clarification and Context Update Nodes.
+V9 Clarification Node - Human-in-the-Loop for Ambiguous Queries
 
-Handles human-in-the-loop clarification at two points:
-1. DISCOVERY CLARIFY: After discovery finds multiple entities (pre-search)
-2. RANKER CLARIFY: After ranker detects mixed entities (post-search, backup)
+This module handles human clarification when the query analyzer detects
+ambiguity that requires user input to resolve.
 
-Also includes:
-- UPDATE_CONTEXT: Injects confirmed entity into targeted queries
-- FILTER: Filters sources to selected entity (post-search)
+Key Principle: Once clarified, ALL downstream nodes have access to
+the full context (original query + clarification + enriched understanding).
+
+Flow:
+1. Query Analyzer detects ambiguity → sets needs_clarification=True
+2. Graph INTERRUPTS before clarify_node
+3. User provides clarification (stored in user_clarification)
+4. This node processes the clarification with LLM
+5. Creates enriched_context for downstream nodes
+6. Proceeds to Planner with complete information
 """
 from __future__ import annotations
 
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
-from src.core.state import AgentState, PlanQuery
-from src.utils.logging_setup import get_logger
-from src.utils.validation import (
-    get_str, get_list, get_dict,
-    ensure_str, ensure_list
-)
+from langchain_core.messages import SystemMessage, HumanMessage
 
-logger = get_logger(__name__)
+from src.core.state import AgentState, QueryAnalysisResult
+from src.utils.json_utils import parse_json_object, parse_json_array
+from src.utils.llm import create_chat_model
 
 
-def _looks_like_name_or_entity(text: str) -> bool:
-    """
-    Check if text looks like a person/entity name (possibly with context).
+# ============================================================================
+# CLARIFICATION PROCESSING PROMPT
+# ============================================================================
 
-    Examples that should return True:
-    - "Pierce Berke" (capitalized name)
-    - "pierce berke" (lowercase name - user may not capitalize)
-    - "pierce berke amherst college" (name + context)
-    - "Dr. John Smith Stanford" (name with title + context)
+CLARIFICATION_PROCESSOR_PROMPT = """You are processing a user's clarification response to improve a research query.
 
-    Examples that should return False:
-    - "what is pierce" (question)
-    - "tell me more" (command)
-    - "yes" (confirmation)
-    """
-    text = text.strip()
-    if not text:
-        return False
+## Original Query
+{original_query}
 
-    words = text.split()
+## Original Analysis
+- Intent: {original_intent}
+- Query Class: {original_class}
+- Primary Subject: {original_subject}
+- Topic Focus: {topic_focus}
+- Ambiguity Reasons: {ambiguity_reasons}
 
-    # Single word could be a name, but need at least 2 for confidence
-    # (single words are handled by cluster matching)
-    if len(words) < 2:
-        return False
+## Clarification Asked
+{clarification_question}
 
-    # Too many words is likely a question or long description
-    if len(words) > 6:
-        return False
+## User's Response
+{user_response}
 
-    # Check for question/command patterns
-    lower = text.lower()
-    question_patterns = [
-        "what", "who", "how", "tell", "show", "find", "search",
-        "can you", "could you", "please", "i want", "i need"
-    ]
-    if any(lower.startswith(p) for p in question_patterns):
-        return False
+## Your Task
 
-    # If text has proper capitalization, it's likely a name
-    has_capital = any(w[0].isupper() for w in words if len(w) > 1)
-    if has_capital:
-        return True
+Analyze the user's clarification and produce an updated, enriched understanding.
 
-    # For lowercase input, check if it matches common name patterns:
-    # - 2-4 words that are not common stop words
-    stop_words = {
-        "the", "a", "an", "is", "are", "was", "were", "be", "been",
-        "have", "has", "had", "do", "does", "did", "will", "would",
-        "about", "more", "some", "any", "all", "this", "that",
-        "yes", "no", "ok", "okay", "sure", "maybe", "first"
-    }
+Output JSON:
+{{
+  "enriched_context": "A clear, comprehensive statement combining the original query with the clarification. This should be a complete description of what the user wants to research.",
+  "updated_intent": "Refined statement of what the user wants to learn",
+  "updated_subject": "The clarified primary subject",
+  "updated_topic_focus": "Specific angle or aspect (null if general)",
+  "updated_class": "The query class (may change based on clarification)",
+  "additional_context": ["key context item 1", "key context item 2"],
+  "suggested_questions": [
+    "Research question 1 based on clarified understanding",
+    "Research question 2",
+    "Research question 3",
+    "Research question 4",
+    "Research question 5"
+  ],
+  "suggested_outline": ["Section 1", "Section 2", "Section 3", "Section 4"],
+  "confidence_boost": 0.1-0.4,
+  "reasoning": "Brief explanation of how the clarification helped"
+}}
 
-    non_stop_words = [w for w in words if w.lower() not in stop_words]
+## Examples
 
-    # If we have 2+ non-stop words, likely a name/entity
-    return len(non_stop_words) >= 2
+### Example 1: Person Disambiguation
+Original: "John Smith professor"
+Clarification asked: "Which John Smith? Please specify university or field."
+User response: "MIT, computer science"
 
+Output:
+{{
+  "enriched_context": "Research John Smith, a computer science professor at MIT. Find information about his background, research work, publications, and academic contributions in computer science.",
+  "updated_intent": "Learn about John Smith, the computer science professor at MIT",
+  "updated_subject": "John Smith (MIT Computer Science)",
+  "updated_topic_focus": "academic career and research",
+  "updated_class": "person_profile",
+  "additional_context": ["MIT", "computer science", "professor"],
+  "suggested_questions": [
+    "What is John Smith's educational background and career path?",
+    "What are his main research areas in computer science?",
+    "What notable publications has he authored?",
+    "What courses does he teach at MIT?",
+    "What awards or recognition has he received?"
+  ],
+  "suggested_outline": ["Background", "Research Areas", "Publications", "Teaching", "Awards"],
+  "confidence_boost": 0.35,
+  "reasoning": "User provided specific institution (MIT) and field (computer science), which uniquely identifies the professor."
+}}
+
+### Example 2: Topic Focus Clarification
+Original: "Tell me about Apple"
+Clarification asked: "Are you asking about Apple the company, or apples the fruit?"
+User response: "the company, specifically their AI strategy"
+
+Output:
+{{
+  "enriched_context": "Research Apple Inc.'s artificial intelligence strategy, including their AI products, research initiatives, acquisitions, and competitive positioning in the AI market.",
+  "updated_intent": "Understand Apple Inc.'s AI strategy and initiatives",
+  "updated_subject": "Apple Inc.",
+  "updated_topic_focus": "AI strategy and initiatives",
+  "updated_class": "current_events",
+  "additional_context": ["Apple Inc.", "artificial intelligence", "AI strategy", "technology"],
+  "suggested_questions": [
+    "What AI features has Apple integrated into their products?",
+    "What is Apple's AI research division working on?",
+    "What AI-related acquisitions has Apple made?",
+    "How does Apple's AI strategy compare to competitors?",
+    "What are Apple's plans for generative AI?"
+  ],
+  "suggested_outline": ["AI Product Features", "Research Initiatives", "Acquisitions", "Competitive Analysis", "Future Plans"],
+  "confidence_boost": 0.3,
+  "reasoning": "User clarified they want Apple the company (not fruit) and specifically their AI strategy, providing clear focus."
+}}
+"""
+
+
+# ============================================================================
+# CLARIFICATION NODE
+# ============================================================================
 
 def clarify_node(state: AgentState) -> Dict[str, Any]:
     """
-    Process human clarification after discovery or ranker detects multiple entities.
+    Process user clarification and enrich context for downstream nodes.
 
-    The graph INTERRUPTS before this node to get human input.
-    Human response is stored in state["human_clarification"].
+    This node runs AFTER the LangGraph interrupt. The user's response
+    is expected in state["user_clarification"] or state["human_clarification"].
 
-    Possible responses:
-    - Number (1, 2, 3): Select that cluster
-    - "yes" / "y" / "first": Confirm first option
-    - Name text (e.g., "Claudiu Babin"): Use as NEW entity to search
-    - Free text: Additional context to add to search
+    The node:
+    1. Takes the user's clarification response
+    2. Uses LLM to create enriched context
+    3. Updates query_analysis with clarified information
+    4. Generates research questions if not already present
+
+    All downstream nodes will have access to:
+    - original_query: The raw query
+    - user_clarification: What the user said
+    - enriched_context: LLM-processed comprehensive context
+    - query_analysis: Updated with clarified information
+
+    Returns:
+        Dict with enriched_context, updated query_analysis, and cleared flags
     """
-    human_response = get_str(state, "human_clarification", "")
-    clusters = get_list(state, "entity_clusters", [])
-    subject = get_str(state, "subject", "")
+    original_query = state.get("original_query", "")
+    query_analysis = state.get("query_analysis") or {}
+    clarification_request = state.get("clarification_request", "")
 
-    if not human_response:
-        logger.info("No response, using first cluster")
-        if clusters:
-            selected = clusters[0]
-            return {
-                "selected_cluster": selected,
-                "primary_anchor": ensure_str(selected.get("entity_name"), default=subject),
-                "needs_clarification": False,
-            }
-        return {"needs_clarification": False}
+    # Check both field names for user's response
+    user_clarification = state.get("user_clarification", "")
+    if not user_clarification:
+        user_clarification = state.get("human_clarification", "")
 
-    logger.info(f"Received clarification: {human_response}")
-    response_stripped = human_response.strip()
-    response_lower = response_stripped.lower()
-
-    # === Try to parse as number ===
-    try:
-        idx = int(response_stripped) - 1
-        if 0 <= idx < len(clusters):
-            selected = clusters[idx]
-            entity_name = ensure_str(selected.get("entity_name"), default=subject)
-            logger.info(f"Selected #{idx + 1}: {entity_name}")
-            return {
-                "selected_cluster": selected,
-                "primary_anchor": entity_name,
-                "needs_clarification": False,
-            }
-    except ValueError:
-        pass
-
-    # === Check for yes/no/first ===
-    if response_lower in ("yes", "y", "1", "first", "the first one", "first one"):
-        if clusters:
-            selected = clusters[0]
-            entity_name = ensure_str(selected.get("entity_name"), default=subject)
-            logger.info(f"Confirmed first: {entity_name}")
-            return {
-                "selected_cluster": selected,
-                "primary_anchor": entity_name,
-                "needs_clarification": False,
-            }
-
-    # === Check if response matches any cluster name ===
-    for cluster in clusters:
-        entity_name = ensure_str(cluster.get("entity_name"), default="").lower()
-        entity_desc = ensure_str(cluster.get("entity_description"), default="").lower()
-
-        # Check for substring match in name or description
-        if response_lower in entity_name or entity_name in response_lower:
-            logger.info(f"Matched cluster: {cluster.get('entity_name', '?')}")
-            return {
-                "selected_cluster": cluster,
-                "primary_anchor": cluster.get("entity_name", subject),
-                "needs_clarification": False,
-            }
-
-        # Also check key words in description
-        response_words = set(response_lower.split())
-        desc_words = set(entity_desc.split())
-        if len(response_words & desc_words) >= 2:  # At least 2 words match
-            logger.info(f"Matched cluster by description: {cluster.get('entity_name', '?')}")
-            return {
-                "selected_cluster": cluster,
-                "primary_anchor": cluster.get("entity_name", subject),
-                "needs_clarification": False,
-            }
-
-    # === User provided a NEW name (not in clusters) ===
-    # This is the KEY fix: if they type a name like "Claudiu Babin" or "pierce berke amherst college",
-    # we should search for THAT person, not default to first cluster
-    # IMPORTANT: This triggers a REPLAN because the entity is completely different
-    if _looks_like_name_or_entity(response_stripped):
-        logger.info(f"User specified NEW entity: {response_stripped}")
-
-        # Create a new "virtual" cluster for this specific person
-        new_cluster = {
-            "entity_name": response_stripped,
-            "entity_description": f"Specific person/entity: {response_stripped}",
-            "entity_type": "person",  # Assume person when user specifies a name
-            "source_urls": [],
-            "evidence": "User-specified entity",
-            "confidence": 1.0,
-        }
-
-        # Update anchor terms with the full name for better search
-        anchor_terms = get_list(state, "anchor_terms", [])
-        # Don't add if it's already there
-        if response_stripped not in anchor_terms:
-            anchor_terms = anchor_terms + [response_stripped]
-
-        # Get original query to preserve user's intent
-        original_query = get_str(state, "original_query", "")
-
+    # If no clarification provided, try to proceed with best effort
+    if not user_clarification:
+        print("[Clarify] No clarification provided, proceeding with original query")
         return {
-            "selected_cluster": new_cluster,
-            "primary_anchor": response_stripped,
-            "anchor_terms": anchor_terms,
+            "enriched_context": original_query,
             "needs_clarification": False,
-            # Update subject to the new specific name
-            "subject": response_stripped,
-            "subject_type": "person",  # User specified a name, treat as person
-            # CRITICAL: Flag that we need to replan with the new entity
-            # The original query + new entity context = new research direction
-            "needs_replan": True,
-            "replan_context": {
-                "original_query": original_query,
-                "clarified_entity": response_stripped,
-                "anchor_terms": anchor_terms,
-            },
-        }
-
-    # === Generic free text - use as additional context ===
-    logger.info(f"Using as additional context: {response_stripped[:50]}...")
-    anchor_terms = get_list(state, "anchor_terms", [])
-    anchor_terms = anchor_terms + [response_stripped]
-
-    # If we have clusters, pick the first one but add the context
-    if clusters:
-        selected = clusters[0]
-        return {
-            "selected_cluster": selected,
-            "primary_anchor": ensure_str(selected.get("entity_name"), default=subject),
-            "anchor_terms": anchor_terms,
-            "needs_clarification": False,
-        }
-
-    return {
-        "anchor_terms": anchor_terms,
-        "needs_clarification": False,
-    }
-
-
-def update_context_node(state: AgentState) -> Dict[str, Any]:
-    """
-    Update targeted queries with confirmed entity context.
-
-    After human selects an entity, this node:
-    1. Gets the confirmed entity name and description
-    2. Updates all targeted_queries to include this context
-    3. Updates the plan for workers
-    """
-    selected_cluster = get_dict(state, "selected_cluster", {})
-    targeted_queries = get_list(state, "targeted_queries", [])
-    plan = get_dict(state, "plan", {})
-    subject = get_str(state, "subject", "")
-    anchor_terms = get_list(state, "anchor_terms", [])
-
-    entity_name = ensure_str(selected_cluster.get("entity_name"), default="")
-    entity_desc = ensure_str(selected_cluster.get("entity_description"), default="")
-
-    if not entity_name:
-        logger.warning("No entity selected, keeping original queries")
-        return {
-            "total_workers": len(targeted_queries),
-        }
-
-    logger.info(f"Updating queries for: {entity_name}")
-
-    # Extract key context terms from entity description
-    context_terms: List[str] = []
-    if entity_desc:
-        # Take key identifying words (first few meaningful words)
-        words = entity_desc.replace(",", " ").replace("-", " ").split()
-        stop_words = {"a", "an", "the", "is", "are", "was", "were", "for", "of", "in", "on", "at"}
-        context_terms = [w for w in words if len(w) > 2 and w.lower() not in stop_words][:3]
-
-    # Also include anchor terms if they're different from entity name
-    for term in anchor_terms:
-        term_clean = ensure_str(term).strip()
-        if term_clean and term_clean.lower() != entity_name.lower():
-            context_terms.append(term_clean)
-
-    context_str = " ".join(context_terms[:4])  # Limit to avoid too long queries
-
-    # Update targeted queries with confirmed entity
-    updated_queries: List[PlanQuery] = []
-    for q in targeted_queries:
-        if not isinstance(q, dict):
-            continue
-
-        query_text = ensure_str(q.get("query"), default="")
-        if not query_text:
-            continue
-
-        # Replace generic subject with specific entity name
-        if subject and subject.lower() in query_text.lower():
-            # Replace subject with full entity name
-            import re
-            query_text = re.sub(
-                re.escape(subject),
-                entity_name,
-                query_text,
-                flags=re.IGNORECASE
-            )
-        elif entity_name.lower() not in query_text.lower():
-            # Add entity name to query
-            query_text = f'"{entity_name}" {context_str} {query_text}'.strip()
-
-        updated_queries.append({
-            **q,
-            "query": query_text,
-        })
-
-    # Ensure at least one query
-    if not updated_queries:
-        updated_queries.append({
-            "qid": "T1",
-            "query": f'"{entity_name}" {context_str}'.strip(),
-            "section": "Overview",
-            "facet": "general",
-            "lane": "general",
-        })
-
-    # Update plan
-    updated_plan = {
-        **plan,
-        "topic": entity_name,
-        "queries": updated_queries,
-    }
-
-    logger.info(f"Updated {len(updated_queries)} queries")
-    for q in updated_queries[:2]:
-        logger.info(f"  - {q['query'][:50]}...")
-
-    return {
-        "plan": updated_plan,
-        "targeted_queries": updated_queries,
-        "primary_anchor": entity_name,
-        "total_workers": len(updated_queries),
-    }
-
-
-def filter_node(state: AgentState) -> Dict[str, Any]:
-    """
-    Filter sources to only those about the selected entity.
-
-    Used after ranker detects mixed entities (post-search backup).
-    Keeps only sources from the selected cluster.
-    """
-    selected_cluster = get_dict(state, "selected_cluster", {})
-    sources = get_list(state, "sources", [])
-    evidence = get_list(state, "evidence", [])
-    plan = get_dict(state, "plan", {})
-
-    if not selected_cluster:
-        logger.info("No cluster selected, keeping all sources")
-        return {}
-
-    # Get URLs in selected cluster
-    cluster_urls = set(ensure_list(selected_cluster.get("source_urls")))
-    entity_name = ensure_str(selected_cluster.get("entity_name"), default="")
-
-    if not cluster_urls:
-        logger.info("No URLs in cluster, keeping all sources")
-        if entity_name:
-            return {
-                "plan": {**plan, "topic": entity_name},
-                "primary_anchor": entity_name,
+            "query_analysis": {
+                **query_analysis,
                 "needs_clarification": False,
+                "ambiguity_level": "low",
             }
-        return {"needs_clarification": False}
+        }
 
-    # Filter sources
-    original_count = len(sources)
-    filtered_sources = []
-    for s in sources:
-        if isinstance(s, dict) and s.get("url") in cluster_urls:
-            filtered_sources.append(s)
+    # Process the clarification with LLM
+    llm = create_chat_model(model="gpt-4o-mini", temperature=0.1)
 
-    # If no sources match (URL mismatch), keep all but update topic
-    if not filtered_sources:
-        logger.warning("URL mismatch, keeping all sources")
-        filtered_sources = sources
+    prompt = CLARIFICATION_PROCESSOR_PROMPT.format(
+        original_query=original_query,
+        original_intent=query_analysis.get("intent", "Unknown"),
+        original_class=query_analysis.get("query_class", "general"),
+        original_subject=query_analysis.get("primary_subject", "Unknown"),
+        topic_focus=query_analysis.get("topic_focus", "None"),
+        ambiguity_reasons=", ".join(query_analysis.get("ambiguity_reasons", ["Unspecified"])),
+        clarification_question=clarification_request or "Please provide more details",
+        user_response=user_clarification,
+    )
 
-    # Filter evidence
-    valid_sids = {s.get("sid") for s in filtered_sources if isinstance(s, dict)}
-    filtered_evidence = [
-        e for e in evidence
-        if isinstance(e, dict) and e.get("sid") in valid_sids
-    ]
+    response = llm.invoke([
+        SystemMessage(content="You process clarifications to improve research queries. Return only valid JSON."),
+        HumanMessage(content=prompt),
+    ])
 
-    logger.info(f"Kept {len(filtered_sources)}/{original_count} sources for: {entity_name}")
+    result = parse_json_object(response.content, default={})
 
-    # Update plan topic
-    updated_plan = plan
-    if entity_name:
-        updated_plan = {**plan, "topic": entity_name}
+    # Extract processed clarification
+    enriched_context = result.get("enriched_context", f"{original_query} - Context: {user_clarification}")
+    updated_intent = result.get("updated_intent", query_analysis.get("intent", ""))
+    updated_subject = result.get("updated_subject", query_analysis.get("primary_subject", ""))
+    updated_topic_focus = result.get("updated_topic_focus")
+    updated_class = result.get("updated_class", query_analysis.get("query_class", "general"))
+    additional_context = result.get("additional_context", [])
+    suggested_questions = result.get("suggested_questions", [])
+    suggested_outline = result.get("suggested_outline", [])
+    confidence_boost = float(result.get("confidence_boost", 0.25))
+
+    # Update query analysis with clarified information
+    updated_analysis: Dict[str, Any] = {
+        **query_analysis,
+        "intent": updated_intent,
+        "primary_subject": updated_subject,
+        "topic_focus": updated_topic_focus,
+        "query_class": updated_class,
+        "needs_clarification": False,
+        "ambiguity_level": "none",
+        "analysis_confidence": min(1.0, query_analysis.get("analysis_confidence", 0.5) + confidence_boost),
+    }
+
+    # Add suggested questions if generated
+    if suggested_questions:
+        updated_analysis["suggested_questions"] = suggested_questions
+
+    if suggested_outline:
+        updated_analysis["suggested_outline"] = suggested_outline
+
+    # Log for debugging
+    print(f"\n[Clarify] User clarification: {user_clarification}")
+    print(f"[Clarify] Enriched context: {enriched_context[:150]}...")
+    print(f"[Clarify] Updated subject: {updated_subject}")
+    print(f"[Clarify] Updated class: {updated_class}")
+    print(f"[Clarify] Confidence: {query_analysis.get('analysis_confidence', 0.5):.2f} → {updated_analysis['analysis_confidence']:.2f}")
 
     return {
-        "sources": filtered_sources,
-        "evidence": filtered_evidence,
-        "plan": updated_plan,
-        "primary_anchor": entity_name or get_str(state, "primary_anchor", ""),
+        # Core clarification outputs
+        "enriched_context": enriched_context,
+        "user_clarification": user_clarification,
         "needs_clarification": False,
+        "clarification_request": None,
+
+        # Updated analysis
+        "query_analysis": updated_analysis,
+
+        # Anchor terms for downstream compatibility
+        "primary_anchor": updated_subject,
+        "anchor_terms": additional_context,
+
+        # Legacy field support
+        "human_clarification": user_clarification,
     }
+
+
+# ============================================================================
+# ROUTING FUNCTION
+# ============================================================================
+
+def route_after_clarify(state: AgentState) -> str:
+    """
+    Route after clarification - always proceed to planner.
+
+    The clarification has been processed, so we continue with enriched context.
+    """
+    return "planner"
+
+
+# ============================================================================
+# HELPER: Format clarification for display
+# ============================================================================
+
+def format_clarification_request(state: AgentState) -> str:
+    """
+    Format the clarification request for user-friendly display.
+
+    Called by UI layer to present clarification to the user.
+    """
+    query_analysis = state.get("query_analysis", {})
+    clarification_question = state.get("clarification_request", "")
+    clarification_options = query_analysis.get("clarification_options", [])
+
+    if not clarification_question:
+        return "Could you provide more details about your query?"
+
+    formatted = f"**Clarification needed:**\n\n{clarification_question}"
+
+    if clarification_options:
+        formatted += "\n\n**Suggestions:**"
+        for i, option in enumerate(clarification_options, 1):
+            formatted += f"\n{i}. {option}"
+
+    return formatted
+
+
+# ============================================================================
+# EXPORTS
+# ============================================================================
+
+__all__ = [
+    "clarify_node",
+    "route_after_clarify",
+    "format_clarification_request",
+]

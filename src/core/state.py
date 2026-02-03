@@ -1,12 +1,14 @@
 # src/core/state.py
 """
-Research Studio v8 State Schema.
+Research Studio v9 State Schema.
 
-New features:
-- Knowledge gap tracking
+Features:
+- LLM-driven query analysis (replaces pattern matching)
+- Human-in-the-loop clarification with enriched context
+- Knowledge gap tracking with iterative refinement
 - Research trajectory history
 - Dead end tracking for backtracking
-- Source credibility scoring
+- Source credibility scoring (E-E-A-T)
 - Verified citations with span matching
 - Per-claim confidence scores
 - Multi-agent orchestration state
@@ -34,7 +36,7 @@ Lane = Literal[
 
 
 # -------------------------
-# Query Types
+# Query Types (Legacy - kept for backwards compatibility)
 # -------------------------
 QueryType = Literal[
     "person",
@@ -45,6 +47,92 @@ QueryType = Literal[
     "organization",
     "general"
 ]
+
+
+# -------------------------
+# V9 Query Classification (New)
+# -------------------------
+QueryClass = Literal[
+    # Person-related
+    "person_profile",       # Who is X? Biography, background
+    "person_work",          # What has X done? Achievements, projects
+    "person_opinions",      # What does X think about Y?
+
+    # Topic/Concept-related
+    "concept_explanation",  # What is X? How does it work?
+    "concept_deep_dive",    # Comprehensive understanding of X
+
+    # Current Events & News
+    "current_events",       # Recent news, developments, policies
+    "trending_topic",       # What's happening with X right now?
+
+    # Analysis & Research
+    "comparative_analysis", # X vs Y, pros/cons
+    "causal_analysis",      # Why did X happen? Effects?
+    "policy_analysis",      # Government/corporate policies
+
+    # Technical/How-To
+    "technical_howto",      # How to do X? Implementation
+    "technical_debug",      # Why isn't X working?
+    "technical_docs",       # Documentation, API reference
+
+    # Academic/Research
+    "academic_research",    # Scientific papers, studies
+    "literature_review",    # State of research on X
+
+    # Other
+    "factual_lookup",       # Simple fact: When was X?
+    "recommendation",       # What's the best X for Y?
+    "general",              # Catch-all
+]
+
+
+AmbiguityLevel = Literal["none", "low", "medium", "high"]
+TemporalScope = Literal["recent", "historical", "timeless", "specific_period"]
+ComplexityLevel = Literal["simple", "medium", "complex"]
+
+
+class QueryAnalysisResult(TypedDict, total=False):
+    """
+    Structured output from the LLM query analyzer.
+
+    This replaces pattern-based classification with semantic understanding.
+    """
+    # Core Understanding
+    intent: str                          # What the user actually wants to learn
+    query_class: QueryClass              # Classification category
+
+    # Subject Analysis
+    primary_subject: str                 # Main entity/topic being researched
+    subject_type: str                    # person, organization, concept, event, policy, technology
+    topic_focus: Optional[str]           # Specific angle or aspect
+
+    # Context
+    temporal_scope: TemporalScope        # Time relevance
+    geographic_scope: Optional[str]      # Geographic relevance
+    domain: Optional[str]                # Field/domain (politics, tech, science, etc.)
+
+    # Complexity Assessment
+    complexity: ComplexityLevel          # Simple/medium/complex
+    estimated_sources_needed: int        # How many sources likely needed
+    estimated_search_queries: int        # How many searches likely needed
+
+    # Ambiguity Detection
+    ambiguity_level: AmbiguityLevel      # How ambiguous is the query?
+    ambiguity_reasons: List[str]         # Why it's ambiguous
+    needs_clarification: bool            # Should we ask user?
+    clarification_question: Optional[str] # What to ask
+    clarification_options: List[str]     # Options to present
+
+    # Research Guidance
+    suggested_questions: List[str]       # Research questions to investigate
+    suggested_outline: List[str]         # Suggested report sections
+    suggested_source_types: List[str]    # news, academic, official, etc.
+    search_strategy: str                 # Brief description of approach
+
+    # Confidence
+    analysis_confidence: float           # How confident (0-1)
+    reasoning: str                       # Explanation
 
 
 # ---------- Planning ----------
@@ -255,23 +343,33 @@ class AgentState(MessagesState):
     max_results: Optional[int]
     round: Optional[int]
 
-    # === Discovery & Disambiguation ===
+    # === V9: Query Analysis (LLM-Driven) ===
     original_query: Optional[str]
+    query_analysis: Optional[QueryAnalysisResult]  # NEW: Structured LLM analysis
+
+    # Clarification (HITL)
+    needs_clarification: Optional[bool]     # NEW: Boolean flag for routing
+    clarification_request: Optional[str]    # Question to ask user
+    user_clarification: Optional[str]       # User's response (renamed from human_clarification)
+    enriched_context: Optional[str]         # NEW: Combined context after clarification
+
+    # === Legacy Discovery & Disambiguation (kept for compatibility) ===
     discovery: Optional[DiscoveryResult]
     selected_entity: Optional[EntityCandidate]
 
-    # Anchor term hierarchy
+    # Anchor term hierarchy (populated from query_analysis)
     primary_anchor: Optional[str]           # Main subject (in EVERY query)
     anchor_terms: Optional[List[str]]       # Context qualifiers
 
-    clarification_request: Optional[str]
+    # Legacy clarification field (use user_clarification instead)
     human_clarification: Optional[str]
 
     # === Planning ===
     plan: Optional[Plan]
 
-    # === NEW: Iterative Research State ===
+    # === Iterative Research State ===
     research_iteration: Optional[int]                    # Current iteration (0, 1, 2...)
+    max_iterations: Optional[int]                        # NEW: Hard limit (default: 3)
     knowledge_gaps: Optional[List[KnowledgeGap]]         # What's still missing
     research_trajectory: Optional[List[TrajectoryStep]]  # History of actions
     dead_ends: Optional[List[DeadEnd]]                   # Paths that failed
@@ -308,10 +406,11 @@ class AgentState(MessagesState):
     unverified_claims: Optional[List[str]]  # CIDs without verification
     hallucination_score: Optional[float]    # % of unsupported claims
 
-    # === NEW: Confidence Scoring ===
+    # === Confidence Scoring ===
     claim_confidence: Optional[Dict[str, float]]  # CID -> confidence
     section_confidence: Optional[Dict[str, float]]  # Section -> confidence
     overall_confidence: Optional[float]
+    previous_confidence: Optional[float]  # NEW: For delta calculation in gap detection
 
     # === NEW: Cross-Validation ===
     cross_validated_claims: Optional[List[VerifiedCitation]]
