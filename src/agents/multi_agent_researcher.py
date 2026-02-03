@@ -53,6 +53,7 @@ from src.tools.http_fetch import fetch_and_chunk
 ORCHESTRATE_PROMPT = """You are a research orchestrator. Break down this research query into independent sub-questions that can be researched in parallel.
 
 QUERY: {query}
+{clarification_section}
 
 Rules for creating sub-questions:
 1. Each sub-question should be INDEPENDENT (can be researched without the others)
@@ -114,6 +115,7 @@ SYNTHESIZE_PROMPT = """You are a research synthesizer. Combine findings from mul
 
 ORIGINAL QUERY:
 {query}
+{clarification_section}
 
 WORKER FINDINGS:
 {worker_findings}
@@ -139,6 +141,7 @@ Respond with JSON:
 WRITE_MULTI_PROMPT = """Write a comprehensive research report synthesizing findings from multiple research workers.
 
 QUERY: {query}
+{clarification_section}
 
 WORKER FINDINGS:
 {worker_summaries}
@@ -403,61 +406,72 @@ class MultiAgentResearcher:
             else:
                 print(msg)
 
-    def _default_clarify(self, question: str, options: List[str]) -> str:
+    def _default_clarify(self, question: str, options: List) -> str:
         print(f"\n{'='*60}")
         print("CLARIFICATION NEEDED")
         print('='*60)
         print(f"\n{question}\n")
         if options:
+            print("Options:")
             for i, opt in enumerate(options, 1):
-                print(f"  {i}. {opt}")
-        response = input("\nYour answer: ").strip()
-        if response.isdigit() and 0 < int(response) <= len(options):
-            return options[int(response) - 1]
+                if isinstance(opt, dict):
+                    label = opt.get("label", str(opt))
+                    desc = opt.get("description", "")
+                    print(f"  {i}. {label}")
+                    if desc:
+                        print(f"     {desc}")
+                else:
+                    print(f"  {i}. {opt}")
+            print(f"  {len(options)+1}. Other (type your own)")
+        response = input("\nYour choice (number or text): ").strip()
+        if response.isdigit():
+            idx = int(response) - 1
+            if 0 <= idx < len(options):
+                opt = options[idx]
+                if isinstance(opt, dict):
+                    return opt.get("label", str(opt))
+                return opt
         return response
 
     # =========================================================================
     # PHASE 1: UNDERSTAND (reuse from single-agent)
     # =========================================================================
 
-    def _understand_and_clarify(self, query: str) -> str:
-        """Understand query and clarify if needed."""
+    def _understand_and_clarify(self, query: str) -> tuple[str, str]:
+        """Understand query and clarify if needed. Returns (query, user_clarification)."""
+        from src.agents.deep_researcher import UNDERSTAND_PROMPT
+
         self._log("Analyzing query...", "UNDERSTAND")
 
         response = self.llm.invoke([
-            SystemMessage(content="Analyze query. Output JSON."),
-            HumanMessage(content=f"""Analyze this query:
-
-QUERY: {query}
-
-Is it clear enough to research?
-
-Respond with JSON:
-{{
-    "is_clear": true/false,
-    "clarification_question": "question if unclear",
-    "clarification_options": ["opt1", "opt2", "opt3"]
-}}
-""")
+            SystemMessage(content="Analyze the query. Output valid JSON only."),
+            HumanMessage(content=UNDERSTAND_PROMPT.format(query=query))
         ])
 
         result = parse_json_object(response.content, default={"is_clear": True})
 
         if not result.get("is_clear", True):
-            self._log("Query is ambiguous", "CLARIFY")
+            ambiguity_type = result.get("ambiguity_type", "unknown")
+            self._log(f"Query is ambiguous ({ambiguity_type})", "CLARIFY")
             user_response = self.clarification_callback(
                 result.get("clarification_question", "Please clarify"),
                 result.get("clarification_options", [])
             )
-            return f"{query} - Clarification: {user_response}"
+            return query, user_response
 
-        return query
+        return query, ""
 
     # =========================================================================
     # PHASE 2: ORCHESTRATE
     # =========================================================================
 
-    def _orchestrate(self, query: str) -> List[WorkerTask]:
+    def _clarification_section(self, user_clarification: str) -> str:
+        """Build clarification section for prompts."""
+        if user_clarification:
+            return f"\nUSER CLARIFICATION:\n{user_clarification}"
+        return ""
+
+    def _orchestrate(self, query: str, user_clarification: str = "") -> List[WorkerTask]:
         """Break query into sub-questions for parallel workers."""
         self._log("Breaking down query into sub-questions...", "ORCHESTRATE")
 
@@ -465,7 +479,10 @@ Respond with JSON:
 
         response = self.llm.invoke([
             SystemMessage(content="Break down research query. Output JSON."),
-            HumanMessage(content=ORCHESTRATE_PROMPT.format(query=query))
+            HumanMessage(content=ORCHESTRATE_PROMPT.format(
+                query=query,
+                clarification_section=self._clarification_section(user_clarification)
+            ))
         ])
 
         result = parse_json_object(response.content, default={"sub_questions": []})
@@ -537,7 +554,7 @@ Respond with JSON:
     # PHASE 4: SYNTHESIZE
     # =========================================================================
 
-    def _synthesize(self, query: str, worker_results: List[WorkerResult]) -> Dict[str, Any]:
+    def _synthesize(self, query: str, user_clarification: str, worker_results: List[WorkerResult]) -> Dict[str, Any]:
         """Synthesize findings from all workers."""
         self._log("Synthesizing worker findings...", "SYNTHESIZE")
 
@@ -556,6 +573,7 @@ Respond with JSON:
             SystemMessage(content="Synthesize research findings. Output JSON."),
             HumanMessage(content=SYNTHESIZE_PROMPT.format(
                 query=query,
+                clarification_section=self._clarification_section(user_clarification),
                 worker_findings=findings_text
             ))
         ])
@@ -580,6 +598,7 @@ Respond with JSON:
     def _write_report(
         self,
         query: str,
+        user_clarification: str,
         worker_results: List[WorkerResult],
         synthesis: Dict[str, Any]
     ) -> str:
@@ -627,6 +646,7 @@ Respond with JSON:
             SystemMessage(content="Write research report with citations."),
             HumanMessage(content=WRITE_MULTI_PROMPT.format(
                 query=query,
+                clarification_section=self._clarification_section(user_clarification),
                 worker_summaries=worker_summaries,
                 evidence=evidence_text,
                 sources=sources_text
@@ -667,10 +687,10 @@ Respond with JSON:
         self._log("-" * 60, "")
 
         # Phase 1: Understand & Clarify
-        clarified_query = self._understand_and_clarify(query)
+        original_query, user_clarification = self._understand_and_clarify(query)
 
         # Phase 2: Orchestrate
-        tasks = self._orchestrate(clarified_query)
+        tasks = self._orchestrate(original_query, user_clarification)
 
         if not tasks:
             return {"report": "Failed to create research tasks", "metrics": self.metrics}
@@ -679,12 +699,12 @@ Respond with JSON:
         worker_results = self._run_workers_parallel(tasks)
 
         # Phase 4: Synthesize
-        synthesis = self._synthesize(clarified_query, worker_results)
+        synthesis = self._synthesize(original_query, user_clarification, worker_results)
 
         # Check if more research needed (simplified - skip for now)
 
         # Phase 5: Write
-        report = self._write_report(clarified_query, worker_results, synthesis)
+        report = self._write_report(original_query, user_clarification, worker_results, synthesis)
 
         # Calculate metrics
         self.metrics.total_time = time.time() - total_start
@@ -711,8 +731,9 @@ Respond with JSON:
 
         return {
             "report": report,
-            "query": query,
-            "clarified_query": clarified_query,
+            "query": original_query,
+            "user_clarification": user_clarification,
+            "clarified_query": f"{original_query} - Clarification: {user_clarification}" if user_clarification else original_query,
             "worker_results": [
                 {
                     "worker_id": r.worker_id,

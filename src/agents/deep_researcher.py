@@ -68,38 +68,55 @@ from src.tools.http_fetch import fetch_and_chunk
 # PROMPTS - General prompts that work for ANY query type
 # =============================================================================
 
-UNDERSTAND_PROMPT = """You are a research assistant. Analyze this query to understand what the user wants.
+UNDERSTAND_PROMPT = """You are a research assistant. Analyze this query to determine if it is clear enough to research effectively.
 
 USER'S QUERY:
 {query}
 
-Think carefully:
-1. What is the user asking about?
-2. Is this query clear enough to research, or is it ambiguous?
-3. If ambiguous, what would you need to clarify?
+STEP 1 - Identify what the user is asking about.
+STEP 2 - Check for ambiguity across ALL of these dimensions:
+  a) POLYSEMY: Could key terms refer to different things? (e.g. "Python" → language vs snake vs movie)
+  b) SCOPE: Is the query too broad to research in one pass? (e.g. "Tell me about AI")
+  c) TIME PERIOD: Does the answer depend on when? Is a specific time frame needed?
+  d) GEOGRAPHY: Does the answer vary by location/country/region?
+  e) PERSPECTIVE: Could the user want different angles? (technical vs business vs beginner)
+  f) SPECIFICITY: Are there sub-topics and the user likely cares about only some?
+  g) COMPARISON BASELINE: If comparing, are the comparands clear?
 
-A query is AMBIGUOUS if:
-- It could mean multiple different things
-- Important context is missing (time period, location, specific aspect)
-- The scope is unclear (too broad or unclear focus)
-- Key terms are vague or could refer to different things
+STEP 3 - A query is CLEAR if a reasonable researcher could proceed without guessing the user's intent.
+         A query is AMBIGUOUS if proceeding would risk researching the wrong thing.
 
 Respond with JSON:
 {{
     "understanding": "What you understand the user wants (1-2 sentences)",
     "is_clear": true/false,
+    "ambiguity_type": "polysemy|scope|time_period|geography|perspective|specificity|comparison|none",
     "ambiguity_reason": "Why it's ambiguous (only if is_clear is false)",
-    "clarification_question": "Question to ask user (only if is_clear is false)",
-    "clarification_options": ["option 1", "option 2", "option 3"] // suggested answers (only if is_clear is false)
+    "clarification_question": "A specific question to resolve the ambiguity (only if is_clear is false)",
+    "clarification_options": [
+        {{"label": "Short option text", "description": "1-sentence explanation of what this option means and what the research would focus on"}},
+        {{"label": "Short option text", "description": "1-sentence explanation"}},
+        {{"label": "Short option text", "description": "1-sentence explanation"}}
+    ]
 }}
+
+GUIDELINES FOR CLARIFICATION OPTIONS:
+- Generate 3-5 options that cover the most likely user intents
+- Each option should be MEANINGFULLY DIFFERENT (not overlapping)
+- Order from most likely to least likely intent
+- The label should be concise (3-8 words)
+- The description should explain what research would focus on
+- If the ambiguity is about scope, offer specific sub-topics
+- If about time period, offer specific ranges
+- Always make the options mutually exclusive enough that picking one gives clear research direction
 """
 
 PLAN_PROMPT = """You are a research planner. Create a research plan for this query.
 
-USER'S QUERY:
+USER'S ORIGINAL QUERY:
 {query}
 
-{clarification_context}
+{clarification_section}
 
 Think about:
 1. What are the key questions that need to be answered?
@@ -157,6 +174,7 @@ GAP_DETECTION_PROMPT = """You are assessing research completeness.
 
 ORIGINAL QUERY:
 {query}
+{clarification_section}
 
 RESEARCH QUESTIONS TO ANSWER:
 {questions}
@@ -217,6 +235,7 @@ WRITE_PROMPT = """Write a comprehensive research report answering this query.
 
 QUERY:
 {query}
+{clarification_section}
 
 VERIFIED EVIDENCE (use these as your ONLY source of facts):
 {evidence}
@@ -284,8 +303,9 @@ class VerifiedClaim:
 @dataclass
 class ResearchState:
     """Complete state of the research process."""
-    query: str
-    clarified_query: str = ""
+    query: str                          # Original user query (never mutated)
+    user_clarification: str = ""        # User's clarification response (empty if query was clear)
+    clarified_query: str = ""           # Kept for backward compat in return dict
     research_questions: List[str] = field(default_factory=list)
     aspects_to_cover: List[str] = field(default_factory=list)
 
@@ -365,25 +385,35 @@ class DeepResearchAgent:
             else:
                 print(message)
 
-    def _default_clarification(self, question: str, options: List[str]) -> str:
+    def _default_clarification(self, question: str, options: List) -> str:
         """Default clarification: ask via console input."""
         print(f"\n{'='*60}")
         print("CLARIFICATION NEEDED")
         print('='*60)
         print(f"\n{question}\n")
         if options:
-            print("Suggested options:")
+            print("Options:")
             for i, opt in enumerate(options, 1):
-                print(f"  {i}. {opt}")
+                if isinstance(opt, dict):
+                    label = opt.get("label", str(opt))
+                    desc = opt.get("description", "")
+                    print(f"  {i}. {label}")
+                    if desc:
+                        print(f"     {desc}")
+                else:
+                    print(f"  {i}. {opt}")
             print(f"  {len(options)+1}. Other (type your own)")
 
-        response = input("\nYour answer: ").strip()
+        response = input("\nYour choice (number or text): ").strip()
 
         # Check if user selected a number
         if response.isdigit():
             idx = int(response) - 1
             if 0 <= idx < len(options):
-                return options[idx]
+                opt = options[idx]
+                if isinstance(opt, dict):
+                    return opt.get("label", str(opt))
+                return opt
 
         return response
 
@@ -409,12 +439,14 @@ class DeepResearchAgent:
 
         return result
 
-    def _clarify_if_needed(self, state: ResearchState, understanding: Dict) -> str:
-        """Ask for clarification if the query is ambiguous."""
+    def _clarify_if_needed(self, state: ResearchState, understanding: Dict) -> None:
+        """Ask for clarification if the query is ambiguous. Updates state in place."""
         if understanding.get("is_clear", True):
-            return state.query
+            state.user_clarification = ""
+            return
 
-        self._log(f"Query is ambiguous: {understanding.get('ambiguity_reason', 'unclear')}", "CLARIFY")
+        ambiguity_type = understanding.get("ambiguity_type", "unknown")
+        self._log(f"Query is ambiguous ({ambiguity_type}): {understanding.get('ambiguity_reason', 'unclear')}", "CLARIFY")
 
         question = understanding.get("clarification_question", "Could you please clarify your question?")
         options = understanding.get("clarification_options", [])
@@ -422,11 +454,18 @@ class DeepResearchAgent:
         # Get user clarification
         user_response = self.clarification_callback(question, options)
 
-        # Combine original query with clarification
-        clarified = f"{state.query} - Clarification: {user_response}"
-        self._log(f"Clarified query: {clarified}", "CLARIFY")
+        state.user_clarification = user_response
+        self._log(f"User clarification: {user_response}", "CLARIFY")
 
-        return clarified
+    # =========================================================================
+    # HELPERS
+    # =========================================================================
+
+    def _clarification_section(self, state: ResearchState) -> str:
+        """Build the clarification section for prompts. Empty string if no clarification."""
+        if state.user_clarification:
+            return f"\nUSER CLARIFICATION:\n{state.user_clarification}"
+        return ""
 
     # =========================================================================
     # PHASE 2: PLAN
@@ -436,16 +475,11 @@ class DeepResearchAgent:
         """Create a research plan with questions and initial searches."""
         self._log("Creating research plan...", "PLAN")
 
-        # Build clarification context if any
-        clarification_context = ""
-        if state.clarified_query != state.query:
-            clarification_context = f"USER CLARIFICATION: {state.clarified_query.replace(state.query + ' - Clarification: ', '')}"
-
         response = self.llm.invoke([
             SystemMessage(content="Create a research plan. Output valid JSON only."),
             HumanMessage(content=PLAN_PROMPT.format(
-                query=state.clarified_query or state.query,
-                clarification_context=clarification_context
+                query=state.query,
+                clarification_section=self._clarification_section(state)
             ))
         ])
 
@@ -541,7 +575,9 @@ class DeepResearchAgent:
     ) -> List[Evidence]:
         """Extract evidence from content."""
         # Build context from research questions
-        context = f"Query: {state.clarified_query or state.query}\n"
+        context = f"Query: {state.query}\n"
+        if state.user_clarification:
+            context += f"User clarification: {state.user_clarification}\n"
         if state.research_questions:
             context += "Research questions:\n"
             for q in state.research_questions:
@@ -591,7 +627,8 @@ class DeepResearchAgent:
         response = self.llm.invoke([
             SystemMessage(content="Assess research coverage. Output valid JSON."),
             HumanMessage(content=GAP_DETECTION_PROMPT.format(
-                query=state.clarified_query or state.query,
+                query=state.query,
+                clarification_section=self._clarification_section(state),
                 questions=questions_text,
                 evidence=evidence_text
             ))
@@ -693,7 +730,8 @@ Please try:
         response = self.llm.invoke([
             SystemMessage(content="Write a comprehensive research report. Every claim must have a citation."),
             HumanMessage(content=WRITE_PROMPT.format(
-                query=state.clarified_query or state.query,
+                query=state.query,
+                clarification_section=self._clarification_section(state),
                 evidence=evidence_text,
                 sources=sources_text
             ))
@@ -743,7 +781,12 @@ Please try:
         # PHASE 1: Understand & Clarify
         # -----------------------------------------------------------------
         understanding = self._understand_query(query)
-        state.clarified_query = self._clarify_if_needed(state, understanding)
+        self._clarify_if_needed(state, understanding)
+        # Keep clarified_query for backward compat in return dict
+        if state.user_clarification:
+            state.clarified_query = f"{state.query} - Clarification: {state.user_clarification}"
+        else:
+            state.clarified_query = state.query
 
         # -----------------------------------------------------------------
         # PHASE 2: Plan
@@ -821,7 +864,8 @@ Please try:
         return {
             "report": state.report,
             "query": state.query,
-            "clarified_query": state.clarified_query,
+            "user_clarification": state.user_clarification,
+            "clarified_query": state.clarified_query,  # backward compat
             "sources": {url: {
                 "title": s.title,
                 "url": s.url,
