@@ -1,22 +1,22 @@
 # Research Studio
 
-A deep research agent built on [LangGraph](https://langchain-ai.github.io/langgraph/). Give it a question, it searches the web, reads pages, extracts facts, verifies them, and writes a grounded report with inline citations.
+Deep research agent built on [LangGraph](https://langchain-ai.github.io/langgraph/). You give it a question, it searches the web, reads pages, pulls out facts, checks them, and writes a report with citations.
 
-There are two pipelines:
+Two pipelines:
 
-- **Standard pipeline** (`src/pipeline/`) -- a clean, self-contained research graph with single-agent and multi-agent modes. Handles most queries well and is the easiest to understand and extend.
-- **Advanced pipeline** (`src/advanced/`) -- adds a trust engine on top: source credibility scoring, claim extraction, span-level verification, cross-validation, and per-claim confidence indicators. More rigorous, but slower and more expensive.
+- **Standard** (`src/pipeline/`) -- clean research graph. Single-agent (iterative search loop) or multi-agent (parallel workers via `Send()`). Handles most queries fine.
+- **Advanced** (`src/advanced/`) -- same core flow + a trust engine on top. Source credibility scoring, span verification, cross-validation, per-claim confidence. Slower but catches things the standard pipeline doesn't.
 
-Both pipelines are registered in `langgraph.json` and work out of the box with [LangGraph Studio](https://github.com/langchain-ai/langgraph-studio).
+Both work in [LangGraph Studio](https://github.com/langchain-ai/langgraph-studio) out of the box.
 
 ## How it works
 
 ### Standard pipeline
 
-The standard pipeline supports two research modes, chosen at runtime:
+Two modes, chosen at runtime:
 
-- **Single-agent**: iterative search loop with gap detection. Searches, extracts facts, checks what's missing, searches again until coverage is good enough or the iteration cap is hit.
-- **Multi-agent**: breaks the query into independent sub-questions, fans out parallel workers via LangGraph's `Send()`, collects and synthesizes results, then writes.
+- **Single-agent** -- searches, extracts facts, checks what's missing, searches again. Loops until coverage is good enough or iteration cap is hit.
+- **Multi-agent** -- breaks the query into sub-questions, fans out parallel workers, collects and synthesizes, then writes.
 
 ```mermaid
 graph TD
@@ -63,7 +63,7 @@ graph TD
 
 ### Advanced pipeline
 
-The advanced pipeline follows the same core flow but adds a trust engine between extraction and writing -- 7 specialized nodes (or 2 in batched mode) that score source credibility, extract claims, map citations, verify spans against source text, cross-validate across sources, and assign per-claim confidence scores.
+Same research flow but adds a trust engine between extraction and writing -- 7 nodes (or 2 in batched mode) that score source credibility, extract claims, verify spans against source text, cross-validate, and assign per-claim confidence.
 
 ```mermaid
 graph TD
@@ -118,7 +118,7 @@ graph TD
 
 ## Setup
 
-### 1. Clone and install
+### 1. Install
 
 ```bash
 git clone <your-repo-url>
@@ -126,39 +126,36 @@ cd research-studio
 pip install -e ".[extract]"
 ```
 
-The `[extract]` extra pulls in `trafilatura` and `beautifulsoup4` for better HTML text extraction. The agent works without them (falls back to regex), but results are noticeably better with them.
+`[extract]` pulls in `trafilatura` and `beautifulsoup4` for better HTML parsing. Works without them (falls back to regex) but results are better with them.
 
-### 2. Environment variables
+### 2. Environment
 
 ```bash
 cp .env.example .env
 ```
 
-Fill in:
+You need:
+- `OPENAI_API_KEY` -- for LLM calls (GPT-4o, GPT-4o-mini)
+- `TAVILY_API_KEY` -- for web search
 
-| Variable | Required | What it's for |
-|----------|----------|---------------|
-| `OPENAI_API_KEY` | Yes | LLM calls (GPT-4o, GPT-4o-mini) |
-| `TAVILY_API_KEY` | Yes | Web search |
-| `LANGCHAIN_TRACING_V2` | No | Set to `true` for LangSmith tracing |
-| `LANGCHAIN_API_KEY` | No | Required if tracing is enabled |
+Optional: `LANGCHAIN_TRACING_V2=true` + `LANGCHAIN_API_KEY` if you want LangSmith tracing.
 
 ### 3. Run
 
-**Standard pipeline** (recommended starting point):
+**Standard pipeline** (start here):
 
 ```bash
-# Multi-agent mode (default) -- parallel workers research sub-questions
+# Multi-agent (default)
 python -m src.run "What is quantum computing?"
 
-# Single-agent mode -- iterative search with gap detection
+# Single-agent with gap detection
 python -m src.run --single-agent "Compare React vs Vue"
 
 # Compare both modes side-by-side
 python -m src.run --compare "Latest AI developments"
 ```
 
-**Advanced pipeline** (trust engine -- slower but more rigorous):
+**Advanced pipeline** (trust engine):
 
 ```bash
 python -m src.run_advanced_trust_engine "Who is Satya Nadella?"
@@ -167,42 +164,34 @@ python -m src.run_advanced_trust_engine --single-agent "Compare Python vs JavaSc
 
 ### 4. LangGraph Studio
 
-Both graphs are registered in `langgraph.json`:
-
 ```bash
 langgraph dev
 ```
 
-This opens two graphs in Studio:
-- `pipeline` -- the standard research graph
-- `advanced` -- the trust engine graph
+Opens two graphs: `pipeline` (standard) and `advanced` (trust engine). You can inspect state at each node, play with config knobs, etc.
 
-You can interact with either graph visually, inspect state at each node, and use the configuration knobs (model selection, report format, etc.) directly from the Studio UI.
+## CLI flags
 
-## CLI options
-
-| Flag | Default | Description |
+| Flag | Default | What it does |
 |------|---------|-------------|
-| `--single-agent` | off | Use iterative single-agent mode instead of multi-agent |
-| `--compare` | off | Run both modes and show side-by-side comparison |
-| `--model` | `gpt-4o` | Main LLM for planning, synthesis, and writing |
-| `--fast-model` | `gpt-4o-mini` | Fast LLM for bulk extraction |
-| `--max-results` | `5` | Tavily results per search query |
-| `--format` | `detailed` | Report format: `detailed`, `concise`, or `bullet_points` |
-| `--system-prompt` | none | Custom instructions prepended to the report writer |
-| `--iterations` | `5` / `2` | Max search loop iterations (single / multi) |
-| `--output` | none | Save the report to a file |
-
-Examples:
+| `--single-agent` | off | Iterative single-agent instead of multi-agent |
+| `--compare` | off | Run both modes, show side-by-side |
+| `--model` | `gpt-4o` | Main LLM |
+| `--fast-model` | `gpt-4o-mini` | Fast LLM for extraction |
+| `--max-results` | `5` | Tavily results per query |
+| `--format` | `detailed` | `detailed`, `concise`, or `bullet_points` |
+| `--system-prompt` | none | Custom instructions for the writer |
+| `--iterations` | `5`/`2` | Max loop iterations |
+| `--output` | none | Save report to file |
 
 ```bash
-# Bullet-point summary with fewer search results
+# Bullet points, fewer results
 python -m src.run --format bullet_points --max-results 3 "What is quantum computing?"
 
-# Custom writing instructions
+# Custom writing style
 python -m src.run --system-prompt "Write for a technical audience" "Rust vs Go"
 
-# Save output
+# Save to file
 python -m src.run --output report.md "Explain CRISPR"
 ```
 
@@ -211,91 +200,59 @@ python -m src.run --output report.md "Explain CRISPR"
 ```
 research-studio/
 ├── src/
-│   ├── run.py                          # CLI entry point (standard pipeline)
-│   ├── run_advanced_trust_engine.py    # CLI entry point (advanced pipeline)
-│   ├── pipeline/                       # Standard pipeline
-│   │   ├── state.py                    #   ResearchState (extends MessagesState)
-│   │   ├── prompts.py                  #   All LLM prompts
-│   │   ├── nodes.py                    #   Node functions (11 nodes)
-│   │   └── graph.py                    #   Graph builder, routing, compiled graph
-│   ├── advanced/                       # Advanced pipeline
-│   │   ├── config.py                   #   ResearchConfig (frozen dataclass, ~50 tunables)
-│   │   ├── state.py                    #   AgentState (extends MessagesState, ~60 fields)
-│   │   ├── graph.py                    #   Multiple graph variants
-│   │   └── nodes/                      #   13 node modules
-│   │       ├── discovery.py            #     Entity detection, query classification
-│   │       ├── planner.py              #     Research planning
-│   │       ├── search_worker.py        #     Web search + extraction
-│   │       ├── orchestrator.py         #     Multi-agent orchestration
-│   │       ├── claims.py               #     Claim extraction
-│   │       ├── cite.py                 #     Citation mapping
-│   │       ├── ranker.py               #     Source credibility scoring
-│   │       ├── trust_engine.py         #     Full trust pipeline (7 nodes)
-│   │       ├── trust_engine_batched.py #     Batched trust pipeline (2 LLM calls)
-│   │       ├── iterative.py            #     Gap detection, dead-end backtracking
-│   │       ├── reducer.py              #     Result collection
-│   │       └── writer.py              #     Report generation
-│   ├── tools/                          # Tavily search, HTTP fetch
-│   └── utils/                          # LLM wrappers, caching, JSON parsing, scoring
+│   ├── run.py                       # CLI (standard pipeline)
+│   ├── run_advanced_trust_engine.py  # CLI (advanced pipeline)
+│   ├── pipeline/                     # Standard -- state, prompts, 11 nodes, graph
+│   ├── advanced/                     # Advanced -- config, state, graph, 13 node modules
+│   ├── tools/                        # Tavily search, HTTP fetch
+│   └── utils/                        # LLM wrappers, caching, JSON parsing
 ├── tests/
-│   ├── eval_cases.py                   # Test case definitions
-│   ├── conftest.py                     # Pipeline runner, mock state builder, snapshots
-│   ├── run_eval.py                     # Main eval runner
-│   ├── evaluators/
-│   │   ├── structural.py              # 10 deterministic checks
-│   │   ├── llm_judge.py               # 5 LLM-as-judge evaluators
-│   │   └── behavioral.py             # 7 behavioral tests
-│   ├── test_structural.py             # pytest wrapper for structural checks
-│   ├── test_llm_judge.py              # pytest wrapper for LLM judge
-│   └── test_behavioral.py            # pytest wrapper for behavioral tests
-├── langgraph.json                      # LangGraph Studio configuration
-├── pyproject.toml                      # Dependencies and project metadata
-├── requirements.txt                    # Pinned dependencies
-├── DESIGN.md                           # Detailed design document
-└── .env.example                        # Environment variable template
+│   ├── evaluators/                   # structural (10), llm_judge (5), behavioral (7)
+│   ├── eval_cases.py                 # Test case definitions
+│   ├── conftest.py                   # Pipeline runner, mock state, snapshots
+│   ├── run_eval.py                   # Main eval runner
+│   └── test_*.py                     # pytest wrappers
+├── langgraph.json                    # LangGraph Studio config
+├── pyproject.toml
+├── requirements.txt
+└── DESIGN.md                         # Detailed design doc
 ```
 
-## Evaluation suite
+## Evals
 
-The project includes a 3-layer evaluation framework:
+Three layers, no LangSmith dependency:
 
-**Structural checks** (no API calls needed): report length, citation format, evidence count, source coverage, JSON schema validation, and more. 10 deterministic checks that run instantly.
+**Structural** (instant, no API calls) -- 10 checks: report structure, citations map to real sources, evidence populated, metadata complete, etc.
 
-**LLM-as-judge** (requires API calls): uses a strong model to assess relevance, groundedness, completeness, quality, and citation faithfulness. Each evaluator uses Pydantic structured output for reliable scoring.
+**LLM-as-judge** (needs API calls) -- 5 evaluators with Pydantic structured output: relevance, groundedness (claim-level), completeness, quality (5 sub-scores), citation faithfulness.
 
-**Behavioral tests**: state consistency, verified claims ratio, ambiguity detection accuracy, and more. Tests both offline (mock state) and online (live pipeline) scenarios.
+**Behavioral** -- 7 tests that check the architecture works: config actually changes output format, gap loop improves coverage, both modes produce valid reports, ambiguous queries get caught, etc.
 
 ```bash
-# Quick offline run (mock states, structural only)
+# Quick offline (mock states, structural only)
 python -m tests.run_eval --offline
 
-# Full run against live pipeline
+# Full live run
 python -m tests.run_eval --live
 
-# Run specific cases
-python -m tests.run_eval --live --cases factual_simple broad_comparison
-
-# Skip expensive LLM judge
-python -m tests.run_eval --live --skip-llm-judge
+# Specific cases, skip expensive LLM judge
+python -m tests.run_eval --live --cases factual_simple --skip-llm-judge
 
 # Save results
 python -m tests.run_eval --live --output results.json
 ```
 
-## LangGraph features used
+## LangGraph features
 
-This project uses several LangGraph features beyond basic graph construction:
+- `MessagesState` inheritance for chat-compatible state
+- `operator.add` reducers for parallel-safe accumulation
+- `Send()` for dynamic fan-out to workers
+- `interrupt_before` + `MemorySaver` for human-in-the-loop
+- Conditional edges for all routing (5 in standard, 10+ in advanced)
+- Graph cycles for iterative refinement loops
+- `RunnableConfig["configurable"]` with `context_schema` for Studio knobs
 
-- **`MessagesState`** inheritance for chat-compatible state
-- **`operator.add`** reducers for safe parallel state accumulation
-- **`Send()`** for dynamic fan-out to parallel workers
-- **`interrupt_before`** + `MemorySaver` for human-in-the-loop query clarification
-- **Conditional edges** for routing (single vs multi-agent, gap detection loops, dead-end backtracking)
-- **Graph cycles** for iterative refinement (search -> extract -> check gaps -> search again)
-- **`RunnableConfig["configurable"]`** with `context_schema` for LangGraph Studio knobs
-- **Multiple compiled graph variants** from the same node functions
-
-See [DESIGN.md](./DESIGN.md) for a detailed walkthrough of every node, edge, and design decision.
+See [DESIGN.md](./DESIGN.md) for the full walkthrough.
 
 ## License
 
