@@ -1,6 +1,6 @@
-# Cache directories
-.cache_v7/
-.cache_v8/
+# Cache
+.cache/
+.cache_v*/
 
 # Python
 __pycache__/

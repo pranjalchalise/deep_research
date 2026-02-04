@@ -1,9 +1,10 @@
 """
-Source and evidence identity management: URL normalization, deduplication, and ID assignment.
+Source and evidence identity: URL normalization, dedup, and ID assignment.
 
-Every source gets a stable ID (S1, S2, ...) and every evidence chunk gets an
-ID (E1, E2, ...) linked back to its source. Dedup uses normalized URLs so
-http://www.example.com/ and https://example.com are treated as the same source.
+Every source gets a stable ID (S1, S2, ...) and every evidence chunk gets
+an ID (E1, E2, ...) linked to its parent source. We normalize URLs so that
+trivial variants like http://www.example.com/ and https://example.com
+collapse to the same source instead of creating duplicates.
 """
 from __future__ import annotations
 
@@ -13,7 +14,7 @@ from urllib.parse import urlparse, urlunparse
 
 
 def stable_hash(s: str) -> str:
-    """Deterministic short hash for cache keys and fingerprinting."""
+    """Short deterministic hash for cache keys and fingerprinting."""
     return hashlib.sha256(s.encode("utf-8")).hexdigest()[:16]
 
 
@@ -47,7 +48,7 @@ class Evidence(TypedDict):
 
 
 def normalize_url(url: str) -> str:
-    """Canonicalize a URL so that trivial variants (www, trailing slash, fragments) collapse."""
+    """Canonicalize a URL so trivial variants (www prefix, trailing slash, fragments) merge."""
     url = url.strip()
     if not url:
         return ""
@@ -58,9 +59,11 @@ def normalize_url(url: str) -> str:
         scheme = (parsed.scheme or "https").lower()
         host = (parsed.hostname or "").lower()
 
+        # www. prefix doesn't change the actual site
         if host.startswith("www."):
             host = host[4:]
 
+        # Drop default ports -- they're just noise
         port = parsed.port
         if (scheme == "http" and port == 80) or (scheme == "https" and port == 443):
             port = None
@@ -74,7 +77,9 @@ def normalize_url(url: str) -> str:
                 userinfo = f"{userinfo}:{parsed.password}"
             netloc = f"{userinfo}@{netloc}"
 
+        # Strip trailing slash but keep root path as "/"
         path = parsed.path.rstrip("/") or "/"
+        # Drop fragment -- it's a client-side thing, not a different page
         normalized = urlunparse((scheme, netloc, path, parsed.params, parsed.query, ""))
         return normalized
 
@@ -83,7 +88,7 @@ def normalize_url(url: str) -> str:
 
 
 def dedup_sources(raw_sources: List[RawSource]) -> List[RawSource]:
-    """Collapse duplicates by normalized URL, keeping the longest snippet of each."""
+    """Collapse duplicates by normalized URL, keeping the longest snippet for each."""
     seen: Dict[str, RawSource] = {}
     url_map: Dict[str, str] = {}
 
@@ -125,7 +130,7 @@ def assign_source_ids(sources: List[RawSource]) -> List[Source]:
 
 
 def _text_fingerprint(text: str) -> str:
-    """Normalize whitespace and case so near-identical texts produce the same key."""
+    """Normalize whitespace + case so near-identical texts hash the same."""
     return " ".join(text.lower().split())
 
 
@@ -133,9 +138,11 @@ def assign_evidence_ids(raw_evidence: List[RawEvidence], url_to_sid: Dict[str, s
     """
     Assign E1, E2, ... IDs and link each evidence chunk to its parent source.
 
-    Drops evidence from unknown URLs, deduplicates near-identical text from
-    the same source, and tries both exact and normalized URL matching.
+    Drops evidence from unknown URLs and deduplicates near-identical text
+    from the same source. We try both exact and normalized URL matching
+    because sources might use slightly different URL forms.
     """
+    # Build a normalized-URL lookup so we can match even if the URL form differs
     norm_to_sid: Dict[str, str] = {}
     for url, sid in url_to_sid.items():
         norm_to_sid[normalize_url(url)] = sid
@@ -148,6 +155,7 @@ def assign_evidence_ids(raw_evidence: List[RawEvidence], url_to_sid: Dict[str, s
         if not url:
             continue
 
+        # Try exact match first, then normalized
         sid = url_to_sid.get(url)
         if not sid:
             sid = norm_to_sid.get(normalize_url(url))
@@ -164,13 +172,14 @@ def assign_evidence_ids(raw_evidence: List[RawEvidence], url_to_sid: Dict[str, s
         key = (sid, fingerprint)
 
         if key in seen_evidence:
+            # Keep the longer version if we see a duplicate
             existing = seen_evidence[key]
             if len(text) > len(existing.get("text") or ""):
                 existing["text"] = text[:1200]
             continue
 
         evidence: Evidence = {
-            "eid": "",  # assigned below
+            "eid": "",  # filled in below
             "sid": sid,
             "url": url,
             "title": title,

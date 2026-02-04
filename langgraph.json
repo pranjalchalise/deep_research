@@ -1,0 +1,7 @@
+{
+  "graphs": {
+    "pipeline": "./src/pipeline/graph.py:graph",
+    "advanced": "./src/advanced/graph.py:graph"
+  },
+  "env": ".env"
+}

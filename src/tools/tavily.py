@@ -1,8 +1,9 @@
 """
-Tavily search integration with lane-based filtering and caching.
+Tavily search with lane-based filtering and caching.
 
-Different "lanes" (docs, papers, news, forums, code) restrict searches to
-relevant domains, so the planner can target the right kind of source.
+We split searches into "lanes" (docs, papers, news, forums, code) so the
+planner can target the right kind of source. Each lane restricts results
+to a curated set of domains.
 """
 from __future__ import annotations
 
@@ -13,6 +14,8 @@ from langchain_tavily import TavilySearch
 from src.utils.cache import get_search_cache, make_search_key
 
 
+# Each lane maps to a topic + a set of trusted domains.
+# "general" has no domain restrictions -- it's the catch-all.
 LANE_CONFIG: Dict[str, Dict[str, Any]] = {
     "docs": {
         "topic": "general",
@@ -87,7 +90,7 @@ def make_search(
     max_results: int = 5,
     lane: Optional[str] = None,
 ) -> TavilySearch:
-    """Create a TavilySearch tool configured for the given lane."""
+    """Build a TavilySearch tool configured for the given lane."""
     config = LANE_CONFIG.get(lane or "general", LANE_CONFIG["general"])
     topic = config.get("topic", "general")
     include_domains = config.get("include_domains", [])
@@ -100,7 +103,8 @@ def make_search(
     if include_domains:
         kwargs["include_domains"] = include_domains
 
-    # "advanced" depth gives richer snippets, but not all langchain_tavily versions support it
+    # "advanced" depth gives richer snippets, but older langchain_tavily
+    # versions don't support it -- fall back gracefully
     try:
         return TavilySearch(**kwargs, search_depth="advanced")
     except TypeError:
@@ -108,7 +112,7 @@ def make_search(
 
 
 def normalize(raw: Any) -> List[Dict[str, str]]:
-    """Flatten Tavily's variable output shapes into a consistent list of {url, title, snippet} dicts."""
+    """Flatten Tavily's variable output shapes into a consistent [{url, title, snippet}] list."""
     results = []
     if isinstance(raw, dict):
         results = raw.get("results", []) or []
@@ -125,6 +129,7 @@ def normalize(raw: Any) -> List[Dict[str, str]]:
         if not url:
             continue
         title = str(r.get("title", "")).strip() or url
+        # Tavily sometimes uses "content", sometimes "snippet"
         snippet = str(r.get("content") or r.get("snippet") or "").strip()
         out.append({"url": url, "title": title, "snippet": snippet})
     return out
@@ -137,7 +142,7 @@ def cached_search(
     use_cache: bool = True,
     cache_dir: Optional[str] = None,
 ) -> List[Dict[str, str]]:
-    """Run a Tavily search, returning cached results when available to avoid redundant API calls."""
+    """Run a Tavily search, hitting the cache first to avoid redundant API calls."""
     lane = lane or "general"
     cache_key = make_search_key(query, lane, max_results)
 

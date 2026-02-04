@@ -1,9 +1,9 @@
 """
 Heuristic quality scoring for search results.
 
-Combines domain reputation, lane alignment, recency, and SEO penalties
-into a 0-1 score that the ranker uses to prioritize which sources to
-actually fetch and read.
+We combine domain reputation, lane alignment, recency, and SEO penalties
+into a 0-1 score. The ranker uses this to decide which sources are worth
+actually fetching and reading (since fetching is the expensive part).
 """
 from __future__ import annotations
 
@@ -11,6 +11,7 @@ from urllib.parse import urlparse
 from datetime import datetime
 from typing import Optional, Tuple
 
+# Domains we trust more -- academic sources and official docs get a boost
 PRIMARY_BONUS_DOMAINS = {
     "docs.langchain.com": 0.25,
     "langchain.com": 0.20,
@@ -22,6 +23,7 @@ PRIMARY_BONUS_DOMAINS = {
     "sciencedirect.com": 0.20,
 }
 
+# SEO-heavy sites that tend to have shallow content
 SEO_PENALTY_DOMAINS = {
     "medium.com": -0.10,
     "towardsdatascience.com": -0.08,
@@ -38,7 +40,7 @@ def _domain(url: str) -> str:
         return ""
 
 def parse_date(d: str) -> Optional[datetime]:
-    """Best-effort date parsing for the inconsistent formats Tavily returns."""
+    """Best-effort date parsing -- Tavily returns dates in inconsistent formats."""
     if not d:
         return None
     for fmt in ("%Y-%m-%d", "%Y-%m-%dT%H:%M:%S", "%Y-%m-%dT%H:%M:%S%z"):
@@ -49,6 +51,7 @@ def parse_date(d: str) -> Optional[datetime]:
     return None
 
 def recency_score(published_date: str) -> float:
+    """Newer content gets a small boost -- especially useful for fast-moving topics."""
     dt = parse_date(published_date or "")
     if not dt:
         return 0.0
@@ -62,6 +65,7 @@ def recency_score(published_date: str) -> float:
     return 0.0
 
 def lane_bonus(domain: str, lane: str) -> float:
+    """Extra points when the domain matches what we're looking for (docs, papers, etc.)."""
     if lane == "docs" and ("docs." in domain or "reference." in domain):
         return 0.12
     if lane == "papers" and ("arxiv.org" in domain or "acm." in domain or "ieee." in domain):
@@ -73,9 +77,9 @@ def lane_bonus(domain: str, lane: str) -> float:
     return 0.0
 
 def quality_score(url: str, title: str, snippet: str, lane: str, published_date: str = "") -> float:
-    """Return a 0-1 heuristic quality score based on domain trust, lane fit, and recency."""
+    """Compute a 0-1 heuristic quality score for a search result."""
     domain = _domain(url)
-    score = 0.50  # base
+    score = 0.50  # everyone starts at 0.5
 
     for dom, bonus in PRIMARY_BONUS_DOMAINS.items():
         if domain.endswith(dom):
@@ -90,6 +94,7 @@ def quality_score(url: str, title: str, snippet: str, lane: str, published_date:
     score += lane_bonus(domain, lane)
     score += recency_score(published_date)
 
+    # Minor signals -- PDFs and docs pages tend to be higher quality
     if "pdf" in url.lower():
         score += 0.03
     if "documentation" in (title or "").lower():

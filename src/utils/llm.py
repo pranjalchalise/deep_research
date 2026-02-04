@@ -1,8 +1,9 @@
 """
-Wrappers around LangChain chat models that add exponential-backoff retries.
+LLM wrappers with retry logic.
 
-LLM APIs flake out regularly (rate limits, 502s, timeouts), so every call
-in the pipeline goes through these wrappers instead of hitting the model directly.
+API calls fail all the time -- rate limits, 502s, random timeouts. We wrap
+every LLM call with exponential backoff so the pipeline doesn't just die
+on the first hiccup.
 """
 from __future__ import annotations
 
@@ -10,6 +11,8 @@ import time
 import random
 from typing import Any, Callable, List, Optional, Type, TypeVar, Union
 
+# We match on class names (not instances) because the actual exception types
+# live in different packages depending on which LLM provider is in use.
 RETRYABLE_EXCEPTIONS = (
     "RateLimitError",
     "APIConnectionError",
@@ -24,13 +27,15 @@ T = TypeVar("T")
 
 
 def is_retryable_error(exc: Exception) -> bool:
-    """Decide whether an error is transient (worth retrying) vs. a real bug."""
+    """Check if this error is transient (worth retrying) vs a real bug."""
     exc_name = type(exc).__name__
     exc_str = str(exc).lower()
 
     if exc_name in RETRYABLE_EXCEPTIONS:
         return True
 
+    # Fallback: scan the error message for known transient patterns.
+    # Not elegant, but catches edge cases where providers wrap errors differently.
     retryable_patterns = [
         "rate limit",
         "rate_limit",
@@ -63,11 +68,10 @@ def retry_with_backoff(
     on_retry: Optional[Callable[[Exception, int, float], None]] = None,
 ) -> T:
     """
-    Call func() with exponential backoff on transient failures.
+    Call func() and retry on transient failures with exponential backoff.
 
-    Non-retryable errors (auth failures, bad requests, etc.) are raised
-    immediately. Jitter is on by default to avoid thundering-herd when
-    multiple workers hit the same rate limit.
+    Jitter is on by default so parallel workers don't all retry at the
+    exact same moment (thundering herd problem).
     """
     last_exception: Optional[Exception] = None
 
@@ -92,14 +96,14 @@ def retry_with_backoff(
 
             time.sleep(delay)
 
-    # Unreachable in practice, but keeps the type checker happy
+    # Shouldn't get here, but keeps mypy happy
     if last_exception:
         raise last_exception
     raise RuntimeError("Retry logic error")
 
 
 class LLMWrapper:
-    """Thin wrapper around a LangChain chat model that retries on transient API errors."""
+    """Wraps a LangChain chat model so every call retries on transient API errors."""
 
     def __init__(
         self,
@@ -138,7 +142,8 @@ class LLMWrapper:
         )
 
     async def ainvoke(self, *args: Any, **kwargs: Any) -> Any:
-        # NOTE: the retry loop itself is still synchronous here
+        # TODO: the retry loop is synchronous -- good enough for now but
+        # we should make this properly async eventually
         return retry_with_backoff(
             func=lambda: self.llm.ainvoke(*args, **kwargs),
             max_retries=self.max_retries,
@@ -155,7 +160,7 @@ def create_chat_model(
     verbose: bool = False,
     **kwargs: Any,
 ) -> LLMWrapper:
-    """Create a ChatOpenAI model wrapped with retry logic."""
+    """Spin up a ChatOpenAI instance wrapped with our retry logic."""
     from langchain_openai import ChatOpenAI
 
     llm = ChatOpenAI(model=model, temperature=temperature, **kwargs)
@@ -170,14 +175,14 @@ def create_model_for_node(
     **kwargs: Any,
 ) -> LLMWrapper:
     """
-    Create a model for a specific pipeline node, using V8Config for model routing.
+    Pick the right model for a pipeline node based on ResearchConfig.
 
-    This is where model tiering happens -- cheap models for extraction tasks,
-    smarter models for planning and writing.
+    This is how we do model tiering -- cheap models for grunt work like
+    extraction, smarter models for planning and writing.
     """
-    from src.core.config import V8Config
+    from src.advanced.config import ResearchConfig
 
-    cfg = V8Config()
+    cfg = ResearchConfig()
     model = cfg.get_model_for_node(node_name)
 
     return create_chat_model(

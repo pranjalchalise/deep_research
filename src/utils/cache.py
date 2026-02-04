@@ -1,8 +1,9 @@
 """
-Disk-based cache with TTL for search results and fetched pages.
+Disk cache for search results and fetched pages.
 
-Saves us from re-hitting Tavily or re-downloading the same URLs on every
-run. Each entry is a JSON file keyed by a hash of the query/URL.
+We cache results because re-hitting Tavily on every run is expensive and
+slow. Each entry is a JSON file keyed by a hash of the query or URL.
+Entries expire based on TTL so we don't serve ancient data.
 """
 from __future__ import annotations
 
@@ -15,17 +16,17 @@ from typing import Any, Callable, Dict, Optional, TypeVar, Union
 
 T = TypeVar("T")
 
-DEFAULT_SEARCH_TTL = 3600 * 24      # 24 hours -- search results go stale fast
-DEFAULT_PAGE_TTL = 3600 * 24 * 7    # 7 days -- page content is more stable
+DEFAULT_SEARCH_TTL = 3600 * 24      # 24h -- search results go stale fast
+DEFAULT_PAGE_TTL = 3600 * 24 * 7    # 7 days -- page content changes less often
 
 
 def _hash_key(key: str) -> str:
-    """Hash a cache key down to a safe, fixed-length filename."""
+    """Turn a cache key into a short, filesystem-safe hash."""
     return hashlib.sha256(key.encode("utf-8")).hexdigest()[:32]
 
 
 def _safe_filename(key: str, prefix: str = "") -> str:
-    """Produce a collision-resistant .json filename from a cache key."""
+    """Build a .json filename from a cache key. Hash keeps it collision-resistant."""
     hashed = _hash_key(key)
     if prefix:
         return f"{prefix}_{hashed}.json"
@@ -34,10 +35,10 @@ def _safe_filename(key: str, prefix: str = "") -> str:
 
 class FileCache:
     """
-    One-JSON-file-per-entry cache with TTL expiration.
+    Simple one-file-per-entry disk cache with TTL.
 
-    Each entry stores its creation time and TTL in metadata, so stale
-    entries are silently ignored (and cleaned up on next access).
+    Each JSON file stores creation time + TTL in metadata so we can
+    silently drop stale entries without needing a separate cleanup job.
     """
 
     def __init__(self, cache_dir: str, default_ttl: int = 3600):
@@ -54,7 +55,7 @@ class FileCache:
     def _is_expired(self, metadata: Dict[str, Any]) -> bool:
         ttl = metadata.get("ttl", 0)
         if ttl == 0:
-            return False  # No expiration
+            return False
         created = metadata.get("created", 0)
         return time.time() > created + ttl
 
@@ -77,7 +78,7 @@ class FileCache:
             return None
 
     def set(self, key: str, value: Any, ttl: Optional[int] = None) -> None:
-        """Write a JSON-serializable value to cache. ttl=0 means no expiration."""
+        """Write a value to cache. Pass ttl=0 for entries that never expire."""
         if ttl is None:
             ttl = self.default_ttl
 
@@ -95,7 +96,7 @@ class FileCache:
             with open(path, "w", encoding="utf-8") as f:
                 json.dump(entry, f, ensure_ascii=False, indent=2)
         except (IOError, TypeError) as e:
-            # Caching is best-effort; don't let it crash the pipeline
+            # Caching is best-effort -- never let it crash the pipeline
             print(f"[cache] Warning: Failed to cache key '{key[:50]}...': {e}")
 
     def get_or_set(
@@ -104,7 +105,7 @@ class FileCache:
         factory: Callable[[], T],
         ttl: Optional[int] = None,
     ) -> T:
-        """Return cached value or call factory(), cache the result, and return it."""
+        """Return cached value, or call factory(), cache it, and return it."""
         cached = self.get(key)
         if cached is not None:
             return cached
@@ -140,6 +141,7 @@ class FileCache:
                     path.unlink()
                     count += 1
             except (json.JSONDecodeError, IOError, KeyError):
+                # Corrupt files get cleaned up too
                 try:
                     path.unlink()
                     count += 1
@@ -172,20 +174,22 @@ class FileCache:
         }
 
 
+# -- Singleton accessors so the whole pipeline shares one cache instance --
+
 _search_cache: Optional[FileCache] = None
 _page_cache: Optional[FileCache] = None
 
 
-def get_search_cache(cache_dir: str = ".cache_v7/search") -> FileCache:
-    """Lazily create and return the singleton search cache."""
+def get_search_cache(cache_dir: str = ".cache/search") -> FileCache:
+    """Get (or lazily create) the shared search-results cache."""
     global _search_cache
     if _search_cache is None or str(_search_cache.cache_dir) != cache_dir:
         _search_cache = FileCache(cache_dir, default_ttl=DEFAULT_SEARCH_TTL)
     return _search_cache
 
 
-def get_page_cache(cache_dir: str = ".cache_v7/pages") -> FileCache:
-    """Lazily create and return the singleton page cache."""
+def get_page_cache(cache_dir: str = ".cache/pages") -> FileCache:
+    """Get (or lazily create) the shared fetched-pages cache."""
     global _page_cache
     if _page_cache is None or str(_page_cache.cache_dir) != cache_dir:
         _page_cache = FileCache(cache_dir, default_ttl=DEFAULT_PAGE_TTL)

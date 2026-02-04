@@ -1,8 +1,9 @@
 """
-Fetches web pages and extracts clean text for the research pipeline.
+Web page fetcher with text extraction and caching.
 
-Uses a cascade of extractors (trafilatura > BeautifulSoup > regex) and
-caches results on disk so repeated runs don't re-download the same pages.
+We use a cascade of extractors (trafilatura > BeautifulSoup > regex) because
+no single library handles every site well. Results are cached on disk so
+repeated runs don't re-download the same pages.
 """
 from __future__ import annotations
 
@@ -14,7 +15,7 @@ from src.utils.cache import FileCache, get_page_cache, make_page_key
 from src.utils.text import strip_html_naive, normalize_ws, chunk_text
 
 
-# These sites block scrapers or need JS rendering, so don't bother trying
+# These sites block scrapers or need JS rendering -- not worth the attempt
 SKIP_DOMAINS = {
     "twitter.com", "x.com",
     "facebook.com", "fb.com",
@@ -47,7 +48,7 @@ def should_skip_url(url: str) -> bool:
 
 
 def fetch_html(url: str, timeout_s: float = 12.0) -> str:
-    """Fetch raw HTML, falling back from requests to urllib. Returns '' on failure."""
+    """Grab raw HTML from a URL. Falls back from requests to urllib. Returns '' on failure."""
     if should_skip_url(url):
         return ""
 
@@ -65,7 +66,7 @@ def fetch_html(url: str, timeout_s: float = 12.0) -> str:
     except Exception:
         pass
 
-    # stdlib fallback if requests isn't installed
+    # Fallback to stdlib if requests isn't installed or failed
     try:
         import urllib.request
         req = urllib.request.Request(url, headers=headers)
@@ -81,11 +82,12 @@ def html_to_text(html: str) -> str:
     Extract readable text from HTML using the best available library.
 
     Tries trafilatura first (great for articles), then BeautifulSoup,
-    then falls back to naive regex stripping.
+    then falls back to naive regex stripping as a last resort.
     """
     if not html or len(html) < 100:
         return ""
 
+    # trafilatura is the best at extracting article content
     try:
         import trafilatura
         extracted = trafilatura.extract(
@@ -99,6 +101,7 @@ def html_to_text(html: str) -> str:
     except Exception:
         pass
 
+    # BeautifulSoup as backup -- we strip nav/footer/etc to reduce noise
     try:
         from bs4 import BeautifulSoup
         soup = BeautifulSoup(html, "html.parser")
@@ -106,7 +109,7 @@ def html_to_text(html: str) -> str:
         for tag in soup(["script", "style", "nav", "footer", "header", "aside", "noscript"]):
             tag.decompose()
 
-        # Prefer <main>/<article> to avoid pulling in sidebar/nav noise
+        # Prefer <main>/<article> to avoid pulling in sidebar junk
         main = soup.find("main") or soup.find("article") or soup.find(class_="content") or soup.body
         if main:
             text = main.get_text(" ", strip=True)
@@ -119,6 +122,7 @@ def html_to_text(html: str) -> str:
     except Exception:
         pass
 
+    # Last resort: regex-based tag removal
     return normalize_ws(strip_html_naive(html))
 
 
@@ -128,7 +132,7 @@ def fetch_page_text(
     use_cache: bool = True,
     cache_dir: Optional[str] = None,
 ) -> str:
-    """Fetch a URL and return its text content, using the disk cache when possible."""
+    """Fetch a URL and return clean text, using disk cache when possible."""
     cache_key = make_page_key(url)
 
     if use_cache:
@@ -156,7 +160,7 @@ def fetch_and_chunk(
     use_cache: bool = True,
     cache_dir: Optional[str] = None,
 ) -> List[str]:
-    """Fetch a page and split its text into overlapping chunks for LLM consumption."""
+    """Fetch a page and split it into overlapping chunks sized for LLM context windows."""
     text = fetch_page_text(url, timeout_s, use_cache, cache_dir)
     if not text:
         return []

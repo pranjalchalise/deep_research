@@ -1,9 +1,9 @@
 """
 Forgiving JSON parser for LLM outputs.
 
-LLMs love to wrap JSON in markdown fences, leave trailing commas, use
-single quotes, or mix prose with JSON. This module tries progressively
-harder strategies to extract valid JSON from that mess.
+LLMs love wrapping JSON in markdown fences, leaving trailing commas,
+using single quotes, or mixing prose with JSON. We try progressively
+harder strategies to pull valid JSON out of that mess.
 """
 from __future__ import annotations
 
@@ -15,7 +15,7 @@ T = TypeVar("T")
 
 
 class JSONParseError(Exception):
-    """Raised when JSON parsing fails after all attempts."""
+    """Raised when we can't extract JSON after exhausting all strategies."""
 
     def __init__(self, message: str, raw_text: str, attempts: List[str]):
         super().__init__(message)
@@ -24,7 +24,7 @@ class JSONParseError(Exception):
 
 
 def _strip_markdown_fences(text: str) -> str:
-    """Strip ```json ... ``` wrappers that LLMs almost always add."""
+    """Remove ```json ... ``` wrappers that LLMs almost always add."""
     text = text.strip()
 
     fence_pattern = r"^```(?:json|JSON)?\s*\n?(.*?)\n?```$"
@@ -32,7 +32,7 @@ def _strip_markdown_fences(text: str) -> str:
     if match:
         return match.group(1).strip()
 
-    # Handle fences buried in surrounding prose
+    # Sometimes the fences are buried in surrounding prose
     if "```" in text:
         parts = text.split("```")
         if len(parts) >= 3:
@@ -46,7 +46,7 @@ def _strip_markdown_fences(text: str) -> str:
 
 
 def _extract_json_structure(text: str, start_char: str, end_char: str) -> Optional[str]:
-    """Walk the string to find a balanced { } or [ ] block, handling nested structures and strings."""
+    """Walk the string to find a balanced bracket pair, respecting nesting and quoted strings."""
     start_idx = text.find(start_char)
     if start_idx == -1:
         return None
@@ -84,18 +84,20 @@ def _extract_json_structure(text: str, start_char: str, end_char: str) -> Option
 
 
 def _fix_common_issues(text: str) -> str:
-    """Fix trailing commas, single quotes, JS comments, and unquoted keys."""
+    """Patch up the most common LLM JSON mistakes so json.loads has a chance."""
+    # Trailing commas before closing brackets
     text = re.sub(r",\s*([}\]])", r"\1", text)
 
-    # Only swap single -> double quotes when no double quotes exist at all
-    # (avoids mangling apostrophes in normal JSON strings)
+    # Single quotes -> double quotes, but only when there are no double quotes
+    # at all (otherwise we'd mangle apostrophes in normal strings)
     if '"' not in text and "'" in text:
         text = text.replace("'", '"')
 
+    # Strip JS-style comments
     text = re.sub(r"//.*?$", "", text, flags=re.MULTILINE)
     text = re.sub(r"/\*.*?\*/", "", text, flags=re.DOTALL)
 
-    # Unquoted keys: {key: "value"} -> {"key": "value"}
+    # Unquoted keys: {key: "val"} -> {"key": "val"}
     text = re.sub(r"{\s*(\w+)\s*:", r'{"\1":', text)
     text = re.sub(r",\s*(\w+)\s*:", r',"\1":', text)
 
@@ -108,11 +110,11 @@ def parse_json(
     default: Optional[T] = None,
 ) -> Union[T, Any]:
     """
-    Parse JSON from messy LLM output, trying progressively harder strategies.
+    Try to parse JSON from messy LLM output using multiple strategies.
 
-    Pass expected_type=list or dict to guide extraction when the text
-    contains multiple JSON structures. Returns default on total failure,
-    or raises JSONParseError if no default is given.
+    Pass expected_type=list or dict to guide extraction when there are
+    multiple JSON blobs in the text. Returns default on failure, or
+    raises JSONParseError if no default was given.
     """
     if not text or not text.strip():
         if default is not None:
@@ -122,9 +124,11 @@ def parse_json(
     attempts: List[str] = []
     original = text
 
+    # Step 1: strip markdown fences
     text = _strip_markdown_fences(text)
     attempts.append("strip_markdown")
 
+    # Step 2: try direct parse
     try:
         result = json.loads(text)
         if expected_type is None or isinstance(result, expected_type):
@@ -133,7 +137,7 @@ def parse_json(
         pass
     attempts.append("direct_parse")
 
-    # Try bracket-matching extraction
+    # Step 3: bracket-matching extraction
     if expected_type is list or (expected_type is None and "[" in text):
         extracted = _extract_json_structure(text, "[", "]")
         if extracted:
@@ -156,7 +160,7 @@ def parse_json(
                 pass
         attempts.append("extract_object")
 
-    # Try again after fixing common LLM quirks
+    # Step 4: fix common quirks and retry
     fixed = _fix_common_issues(text)
     if fixed != text:
         try:
@@ -183,7 +187,7 @@ def parse_json(
                     pass
     attempts.append("fix_common_issues")
 
-    # Last resort: greedy regex for anything that looks like JSON
+    # Step 5: last resort -- greedy regex grab
     array_match = re.search(r"\[[\s\S]*\]", text)
     if array_match:
         try:
@@ -210,7 +214,7 @@ def parse_json(
 
 
 def parse_json_array(text: str, default: Optional[List] = None) -> List:
-    """Convenience wrapper that expects the parsed result to be a list."""
+    """Shorthand -- parse and expect a list back."""
     result = parse_json(text, expected_type=list, default=default)
     if isinstance(result, list):
         return result
@@ -220,7 +224,7 @@ def parse_json_array(text: str, default: Optional[List] = None) -> List:
 
 
 def parse_json_object(text: str, default: Optional[dict] = None) -> dict:
-    """Convenience wrapper that expects the parsed result to be a dict."""
+    """Shorthand -- parse and expect a dict back."""
     result = parse_json(text, expected_type=dict, default=default)
     if isinstance(result, dict):
         return result
