@@ -1,0 +1,782 @@
+{
+  "query": "What is CRISPR-Cas9 and how does it work?",
+  "mode": "single",
+  "max_iterations": 3,
+  "min_coverage": 0.7,
+  "understanding": {
+    "understanding": "The user wants to know what CRISPR-Cas9 is and how it functions.",
+    "is_clear": false,
+    "ambiguity_type": "perspective",
+    "ambiguity_reason": "The query does not specify the angle from which the user wants to understand CRISPR-Cas9, such as technical, ethical, or practical applications.",
+    "clarification_question": "What perspective are you interested in regarding CRISPR-Cas9?",
+    "clarification_options": [
+      {
+        "label": "Technical Explanation",
+        "description": "Focus on the scientific and molecular mechanisms of how CRISPR-Cas9 works."
+      },
+      {
+        "label": "Ethical Considerations",
+        "description": "Explore the ethical implications and debates surrounding the use of CRISPR-Cas9."
+      },
+      {
+        "label": "Practical Applications",
+        "description": "Research how CRISPR-Cas9 is being used in various fields such as medicine and agriculture."
+      },
+      {
+        "label": "Beginner Overview",
+        "description": "Provide a simplified explanation suitable for someone new to the topic."
+      },
+      {
+        "label": "Historical Development",
+        "description": "Look into the history and development of CRISPR-Cas9 technology."
+      }
+    ]
+  },
+  "is_ambiguous": true,
+  "clarification_question": "What perspective are you interested in regarding CRISPR-Cas9?",
+  "clarification_options": [
+    {
+      "label": "Technical Explanation",
+      "description": "Focus on the scientific and molecular mechanisms of how CRISPR-Cas9 works."
+    },
+    {
+      "label": "Ethical Considerations",
+      "description": "Explore the ethical implications and debates surrounding the use of CRISPR-Cas9."
+    },
+    {
+      "label": "Practical Applications",
+      "description": "Research how CRISPR-Cas9 is being used in various fields such as medicine and agriculture."
+    },
+    {
+      "label": "Beginner Overview",
+      "description": "Provide a simplified explanation suitable for someone new to the topic."
+    },
+    {
+      "label": "Historical Development",
+      "description": "Look into the history and development of CRISPR-Cas9 technology."
+    }
+  ],
+  "user_clarification": "",
+  "research_questions": [
+    "What is the CRISPR-Cas9 system and what are its components?",
+    "How does CRISPR-Cas9 function at the molecular level?",
+    "What are the current applications of CRISPR-Cas9 in genetic engineering?",
+    "What are the ethical considerations surrounding the use of CRISPR-Cas9?",
+    "What are the potential risks and limitations of using CRISPR-Cas9 technology?"
+  ],
+  "aspects_to_cover": [
+    "The biological mechanism of CRISPR-Cas9",
+    "Applications in medicine and agriculture",
+    "Ethical and societal implications",
+    "Technical challenges and limitations"
+  ],
+  "pending_searches": [
+    "ethical considerations of CRISPR-Cas9 in different cultures",
+    "long-term risks and limitations of CRISPR-Cas9 technology"
+  ],
+  "worker_results": [],
+  "done_workers": 0,
+  "iteration": 1,
+  "coverage": 0.8,
+  "ready_to_write": false,
+  "gaps": [
+    "Detailed exploration of ethical considerations, including specific case studies and diverse perspectives.",
+    "Comprehensive analysis of potential risks and limitations, including long-term effects and specific examples."
+  ],
+  "evidence": [
+    {
+      "fact": "CRISPR-Cas9 requires two components: a Cas enzyme and a single guide RNA (sgRNA).",
+      "quote": "A CRISPR/Cas9 nuclease system requires two components: a Cas enzyme for cutting the target sequence and a single guide RNA (sgRNA), which binds to the target sequence of 20-base pair (bp).",
+      "source_url": "https://www.genoway.com/technologies/crispr-cas9-gene-editing",
+      "source_title": "CRISPR/Cas9 gene editing - genOway",
+      "confidence": 1.0
+    },
+    {
+      "fact": "The target sequence for CRISPR-Cas9 must be followed by a Protospacer Adjacent Motif (PAM) sequence.",
+      "quote": "The target sequence (complementary to the sgRNA sequence) is followed by two cytosine nucleotides... This sequence is called a Protospacer Adjacent Motif (PAM) sequence.",
+      "source_url": "https://www.genoway.com/technologies/crispr-cas9-gene-editing",
+      "source_title": "CRISPR/Cas9 gene editing - genOway",
+      "confidence": 1.0
+    },
+    {
+      "fact": "CRISPR-Cas9 creates double-strand breaks that can lead to Knockouts (KO) or Knockins (KI).",
+      "quote": "CRISPR/Cas9 creates specific double-strand breaks at the target locus that trigger DNA repair mechanisms. These corrections result in two types of genome modifications: constitutive Knockouts (KO) through non-homologous end joining and Knockins (KI) through homologous recombination.",
+      "source_url": "https://www.genoway.com/technologies/crispr-cas9-gene-editing",
+      "source_title": "CRISPR/Cas9 gene editing - genOway",
+      "confidence": 1.0
+    },
+    {
+      "fact": "Efficacy of CRISPR-Cas9 varies significantly across different target sequences.",
+      "quote": "The literature shows that in eukaryotic cells and rodents, efficacy is highly variable from one target sequence to another.",
+      "source_url": "https://www.genoway.com/technologies/crispr-cas9-gene-editing",
+      "source_title": "CRISPR/Cas9 gene editing - genOway",
+      "confidence": 1.0
+    },
+    {
+      "fact": "CRISPR-Cas9 technology has been shown to have off-target effects.",
+      "quote": "One major drawback of this nuclease technology is the non-specific (off-target) cutting of genomic sequences.",
+      "source_url": "https://www.genoway.com/technologies/crispr-cas9-gene-editing",
+      "source_title": "CRISPR/Cas9 gene editing - genOway",
+      "confidence": 1.0
+    },
+    {
+      "fact": "CRISPR-Cas9 consists of two main components: guide RNA (gRNA) and Cas9 protein.",
+      "quote": "The CRISPR-Cas9 system consists of two main components: the CRISPR guide RNA (gRNA) and the Cas9 protein.",
+      "source_url": "https://lifesciences.danaher.com/us/en/library/crispr-cas9.html",
+      "source_title": "CRISPR-Cas9 Technology: Mechanism & Gene Editing Solutions",
+      "confidence": 1.0
+    },
+    {
+      "fact": "The gRNA directs the Cas9 protein to the specific site on the DNA for editing.",
+      "quote": "The gRNA directs the Cas9 protein to the specific site on the DNA where the desired edit is to be made.",
+      "source_url": "https://lifesciences.danaher.com/us/en/library/crispr-cas9.html",
+      "source_title": "CRISPR-Cas9 Technology: Mechanism & Gene Editing Solutions",
+      "confidence": 1.0
+    },
+    {
+      "fact": "Cas9 protein acts like molecular 'scissors' that can cut DNA.",
+      "quote": "The Cas9 enzyme acts like molecular 'scissors' that can cut the DNA at the desired location after being directed there by the gRNA.",
+      "source_url": "https://lifesciences.danaher.com/us/en/library/crispr-cas9.html",
+      "source_title": "CRISPR-Cas9 Technology: Mechanism & Gene Editing Solutions",
+      "confidence": 1.0
+    },
+    {
+      "fact": "CRISPR-Cas9 can introduce permanent changes to the cell genome.",
+      "quote": "CRISPR-Cas9 introduces permanent changes to the cell genome which can be leveraged as a curative treatment for various genetic disorders.",
+      "source_url": "https://lifesciences.danaher.com/us/en/library/crispr-cas9.html",
+      "source_title": "CRISPR-Cas9 Technology: Mechanism & Gene Editing Solutions",
+      "confidence": 1.0
+    },
+    {
+      "fact": "CRISPR-Cas9 can be used for gene therapy to correct genetic mutations.",
+      "quote": "CRISPR-Cas9 can be used to correct genetic mutations for inherited genetic diseases such as cystic fibrosis and sickle cell anemia.",
+      "source_url": "https://lifesciences.danaher.com/us/en/library/crispr-cas9.html",
+      "source_title": "CRISPR-Cas9 Technology: Mechanism & Gene Editing Solutions",
+      "confidence": 1.0
+    },
+    {
+      "fact": "CRISPR-Cas9 is a genome editing technology used to change parts of the genome by removing, adding, or altering sections of DNA.",
+      "quote": "CRISPR-Cas9 is a genome editing technology used to change parts of the genome by removing, adding, or altering sections of DNA.",
+      "source_url": "https://www.integra-biosciences.com/united-states/en/blog/article/what-crispr-cas9-and-how-does-it-work",
+      "source_title": "What is CRISPR-Cas9 and how does it work? - INTEGRA Biosciences",
+      "confidence": 1.0
+    },
+    {
+      "fact": "CRISPR-Cas9 uses a pre-designed RNA sequence to guide the Cas9 enzyme to the location where the genome needs to be altered.",
+      "quote": "It uses a pre-designed RNA sequence to guide the Cas9 enzyme to the location where the genome needs to be altered.",
+      "source_url": "https://www.integra-biosciences.com/united-states/en/blog/article/what-crispr-cas9-and-how-does-it-work",
+      "source_title": "What is CRISPR-Cas9 and how does it work? - INTEGRA Biosciences",
+      "confidence": 1.0
+    },
+    {
+      "fact": "The Cas9 enzyme cleaves the DNA strands, and the cell's natural repair mechanism joins the two ends together by removing, adding, or replacing certain sections.",
+      "quote": "The Cas9 enzyme then cleaves the DNA strands, and the cell's natural repair mechanism joins the two ends together by removing, adding, or replacing certain sections.",
+      "source_url": "https://www.integra-biosciences.com/united-states/en/blog/article/what-crispr-cas9-and-how-does-it-work",
+      "source_title": "What is CRISPR-Cas9 and how does it work? - INTEGRA Biosciences",
+      "confidence": 1.0
+    },
+    {
+      "fact": "CRISPR-Cas9 has its origin in the immune system of bacteria and archaea.",
+      "quote": "CRISPR-Cas9 has its origin in the immune system of bacteria and archaea.",
+      "source_url": "https://www.integra-biosciences.com/united-states/en/blog/article/what-crispr-cas9-and-how-does-it-work",
+      "source_title": "What is CRISPR-Cas9 and how does it work? - INTEGRA Biosciences",
+      "confidence": 1.0
+    },
+    {
+      "fact": "The CRISPR array includes sequences that are transcribed into a trans-activating CRISPR RNA (tracrRNA) and a sequence that produces a Cas9 enzyme.",
+      "quote": "This locus includes two additional sequences that are of interest to us. Firstly, one that is transcribed into a trans-activating CRISPR RNA (tracrRNA), and secondly, a sequence that is used to produce a Cas9 enzyme.",
+      "source_url": "https://www.integra-biosciences.com/united-states/en/blog/article/what-crispr-cas9-and-how-does-it-work",
+      "source_title": "What is CRISPR-Cas9 and how does it work? - INTEGRA Biosciences",
+      "confidence": 1.0
+    },
+    {
+      "fact": "CRISPR-Cas9 is a genetic engineering technique that modifies the genomes of living organisms.",
+      "quote": "CRISPR gene editing... is a genetic engineering technique in molecular biology by which the genomes of living organisms may be modified.",
+      "source_url": "https://en.wikipedia.org/wiki/CRISPR_gene_editing",
+      "source_title": "CRISPR gene editing - Wikipedia",
+      "confidence": 1.0
+    },
+    {
+      "fact": "The CRISPR-Cas9 system is based on a bacterial antiviral defense system.",
+      "quote": "It is based on a simplified version of the bacterial CRISPR - Cas9 antiviral defense system.",
+      "source_url": "https://en.wikipedia.org/wiki/CRISPR_gene_editing",
+      "source_title": "CRISPR gene editing - Wikipedia",
+      "confidence": 1.0
+    },
+    {
+      "fact": "The Cas9 nuclease functions as genetic scissors to introduce modifications in DNA.",
+      "quote": "Working like genetic scissors, the Cas9 nuclease opens both strands of the targeted DNA sequence to introduce the modification.",
+      "source_url": "https://en.wikipedia.org/wiki/CRISPR_gene_editing",
+      "source_title": "CRISPR gene editing - Wikipedia",
+      "confidence": 1.0
+    },
+    {
+      "fact": "CRISPR-Cas9 can create knock-in mutations through homology-directed repair (HDR).",
+      "quote": "Knock-in mutations, facilitated via homology-directed repair (HDR), are the traditional pathway of targeted genomic editing approaches.",
+      "source_url": "https://en.wikipedia.org/wiki/CRISPR_gene_editing",
+      "source_title": "CRISPR gene editing - Wikipedia",
+      "confidence": 1.0
+    },
+    {
+      "fact": "CRISPR-Cas9 can create knock-out mutations through non-homologous end joining (NHEJ).",
+      "quote": "Knock-out mutations caused by CRISPR-Cas9 result from the repair of the double-stranded break by means of non-homologous end joining (NHEJ).",
+      "source_url": "https://en.wikipedia.org/wiki/CRISPR_gene_editing",
+      "source_title": "CRISPR gene editing - Wikipedia",
+      "confidence": 1.0
+    },
+    {
+      "fact": "CRISPR/Cas9 is an effective gene editing tool with broad applications for the prevention or treatment of numerous diseases.",
+      "quote": "CRISPR/Cas9 is an effective gene editing tool with broad applications for the prevention or treatment of numerous diseases.",
+      "source_url": "https://www.sciencedirect.com/science/article/pii/S235230422300079X",
+      "source_title": "Clinical applications of the CRISPR/Cas9 genome-editing system",
+      "confidence": 1.0
+    },
+    {
+      "fact": "CRISPR/Cas9 relies on CRISPR as a bacterial immune system.",
+      "quote": "It depends on CRISPR (clustered regularly interspaced short palindromic repeats) as a bacterial immune system and plays as a gene editing tool.",
+      "source_url": "https://www.sciencedirect.com/science/article/pii/S235230422300079X",
+      "source_title": "Clinical applications of the CRISPR/Cas9 genome-editing system",
+      "confidence": 1.0
+    },
+    {
+      "fact": "CRISPR/Cas9 has higher specificity and efficiency compared to other gene editing approaches.",
+      "quote": "Due to the higher specificity and efficiency of CRISPR/Cas9 compared to other editing approaches, it has been broadly investigated to treat numerous hereditary and acquired illnesses.",
+      "source_url": "https://www.sciencedirect.com/science/article/pii/S235230422300079X",
+      "source_title": "Clinical applications of the CRISPR/Cas9 genome-editing system",
+      "confidence": 1.0
+    },
+    {
+      "fact": "CRISPR/Cas9 has been used to treat various diseases including cancers, hemolytic diseases, immunodeficiency disorders, cardiovascular diseases, visual maladies, neurodegenerative conditions, and some X-linked disorders.",
+      "quote": "It has been broadly investigated to treat numerous hereditary and acquired illnesses, including cancers, hemolytic diseases, immunodeficiency disorders, cardiovascular diseases, visual maladies, neurodegenerative conditions, and a few X-linked disorders.",
+      "source_url": "https://www.sciencedirect.com/science/article/pii/S235230422300079X",
+      "source_title": "Clinical applications of the CRISPR/Cas9 genome-editing system",
+      "confidence": 1.0
+    },
+    {
+      "fact": "CRISPR/Cas9 strategies can treat gene-related illnesses by deleting, inserting, modifying, or blocking the expression of specific genes.",
+      "quote": "CRISPR/Cas9 strategies may treat gene-related illnesses by deleting, inserting, modifying, or blocking the expression of specific genes.",
+      "source_url": "https://www.sciencedirect.com/science/article/pii/S235230422300079X",
+      "source_title": "Clinical applications of the CRISPR/Cas9 genome-editing system",
+      "confidence": 1.0
+    },
+    {
+      "fact": "CRISPR stands for Clustered Regularly Interspaced Short Palindromic Repeats.",
+      "quote": "The Clustered Regularly Interspaced Short Palindromic Repeats (CRISPR) are originally discovered as bacterial immune systems and were subsequently investigated as versatile tools for genome editing.",
+      "source_url": "https://www.bmbreports.org/view.html?uid=1938&vmd=Full",
+      "source_title": "Applications of CRISPR technologies to the development of gene ...",
+      "confidence": 1.0
+    },
+    {
+      "fact": "The CRISPR system consists of protein components with nucleic acid-cutting functions and a guide RNA.",
+      "quote": "Generally, CRISPR system consists of a combination of single or multiple protein components with nucleic acid-cutting functions and a guide RNA that determines the target nucleic acids.",
+      "source_url": "https://www.bmbreports.org/view.html?uid=1938&vmd=Full",
+      "source_title": "Applications of CRISPR technologies to the development of gene ...",
+      "confidence": 1.0
+    },
+    {
+      "fact": "CRISPR-mediated double-strand DNA breaks (DSB) trigger intracellular DNA repair mechanisms.",
+      "quote": "In eukaryotic cells, when CRISPR-mediated DSB triggers the intracellular DNA repair mechanisms, such as non-homologous end joining (NHEJ), homology-directed repair (HDR), and microhomology-mediated end joining (MMEJ), that results in induction of gene editing.",
+      "source_url": "https://www.bmbreports.org/view.html?uid=1938&vmd=Full",
+      "source_title": "Applications of CRISPR technologies to the development of gene ...",
+      "confidence": 1.0
+    },
+    {
+      "fact": "CRISPR gene editing can lead to unintended genetic modifications.",
+      "quote": "While CRISPR gene editing methods have shown high efficiencies, the CRISPR genome editing via DSB could lead to unexpected genetic modifications.",
+      "source_url": "https://www.bmbreports.org/view.html?uid=1938&vmd=Full",
+      "source_title": "Applications of CRISPR technologies to the development of gene ...",
+      "confidence": 1.0
+    },
+    {
+      "fact": "Off-target effects are a safety concern in CRISPR applications.",
+      "quote": "In addition to off-target effects, another notable issue is the inherent variabilities in the resulting modified sequences found in genome editing by DNA break and repair.",
+      "source_url": "https://www.bmbreports.org/view.html?uid=1938&vmd=Full",
+      "source_title": "Applications of CRISPR technologies to the development of gene ...",
+      "confidence": 1.0
+    },
+    {
+      "fact": "CRISPR-Cas9 technology is preferred for gene editing due to its high accuracy, easy handling, and low cost.",
+      "quote": "In recent years, clustered regularly interspaced short palindromic repeats technology (CRISPR-Cas9) has become the most preferred method of gene editing. This technology has advantages such as high accuracy, easy handling, and relatively low cost compared to previous technologies.",
+      "source_url": "https://pmc.ncbi.nlm.nih.gov/articles/PMC7129066/",
+      "source_title": "Bioethical issues in genome editing by CRISPR-Cas9 technology",
+      "confidence": 0.9
+    },
+    {
+      "fact": "CRISPR-Cas9 can be applied in various fields including medicine and agriculture.",
+      "quote": "Thanks to these benefits, CRISPR-Cas9 technology can be easily applied in any molecular biology laboratory. Genome editing technologies are used in the formation of human disease models in experimental animals and for the understanding of basic gene functions.",
+      "source_url": "https://pmc.ncbi.nlm.nih.gov/articles/PMC7129066/",
+      "source_title": "Bioethical issues in genome editing by CRISPR-Cas9 technology",
+      "confidence": 0.8
+    },
+    {
+      "fact": "CRISPR-Cas9 has therapeutic potential for treating diseases such as certain cancers, genetic disorders, and HIV/AIDS.",
+      "quote": "They also have great therapeutic potential for future treatment of untreated diseases such as certain cancers, genetic disorders, and HIV/AIDS.",
+      "source_url": "https://pmc.ncbi.nlm.nih.gov/articles/PMC7129066/",
+      "source_title": "Bioethical issues in genome editing by CRISPR-Cas9 technology",
+      "confidence": 0.85
+    },
+    {
+      "fact": "Bioethical issues arise from the use of CRISPR-Cas9 for germline genome editing.",
+      "quote": "Most concerns stem from the use of CRISPR-Cas9 to genetically alter human germline cells and embryos (called germline genome editing).",
+      "source_url": "https://pmc.ncbi.nlm.nih.gov/articles/PMC7129066/",
+      "source_title": "Bioethical issues in genome editing by CRISPR-Cas9 technology",
+      "confidence": 0.9
+    },
+    {
+      "fact": "Legislation is needed to ensure the safe use of CRISPR-Cas9 technology.",
+      "quote": "In order for CRISPR-Cas9 to be used safely in all areas and to solve potential issues, worldwide legislation should be prepared.",
+      "source_url": "https://pmc.ncbi.nlm.nih.gov/articles/PMC7129066/",
+      "source_title": "Bioethical issues in genome editing by CRISPR-Cas9 technology",
+      "confidence": 0.8
+    },
+    {
+      "fact": "CRISPR-Cas9 is a bioengineered enzyme complex developed by Jennifer Doudna and Emmanelle Charpentier in 2012.",
+      "quote": "In 2012, scientists Jennifer Doudna and Emmanelle Charpentier developed the CRISPR-Cas9 bioengineered complex.",
+      "source_url": "https://onlineethics.org/cases/ethics-emerging-technologies-life-sciences/case-genome-editing-ethics-crispr-cas9",
+      "source_title": "Case: Genome Editing & the Ethics of CRISPR-Cas9",
+      "confidence": 1.0
+    },
+    {
+      "fact": "CRISPR-Cas9 allows researchers to target specific genes by binding and splicing DNA at specific locations.",
+      "quote": "The technology allows researchers to target a specific gene by binding and splicing the DNA at specific locations.",
+      "source_url": "https://onlineethics.org/cases/ethics-emerging-technologies-life-sciences/case-genome-editing-ethics-crispr-cas9",
+      "source_title": "Case: Genome Editing & the Ethics of CRISPR-Cas9",
+      "confidence": 1.0
+    },
+    {
+      "fact": "In April 2015, a research team led by Junjiu Huang used CRISPR-Cas9 to edit the HBB gene in non-viable human embryos.",
+      "quote": "The research team, led by Junjiu Huang, used an engineered enzyme complex, called CRISPR-Cas9, to target and edit the HBB gene.",
+      "source_url": "https://onlineethics.org/cases/ethics-emerging-technologies-life-sciences/case-genome-editing-ethics-crispr-cas9",
+      "source_title": "Case: Genome Editing & the Ethics of CRISPR-Cas9",
+      "confidence": 1.0
+    },
+    {
+      "fact": "The study by Huang and colleagues found that only a small fraction of the embryos had the replaced genetic material at the targeted gene.",
+      "quote": "Their results showed that only a small fraction of the 86 embryos used in the study had the replaced genetic material at the targeted gene.",
+      "source_url": "https://onlineethics.org/cases/ethics-emerging-technologies-life-sciences/case-genome-editing-ethics-crispr-cas9",
+      "source_title": "Case: Genome Editing & the Ethics of CRISPR-Cas9",
+      "confidence": 1.0
+    },
+    {
+      "fact": "The researchers identified many 'off-target' mutations as a by-product of using CRISPR-Cas9.",
+      "quote": "The researchers also found that there were many 'off-target' mutations that might have been introduced in the genome as a by-product of the technological intervention.",
+      "source_url": "https://onlineethics.org/cases/ethics-emerging-technologies-life-sciences/case-genome-editing-ethics-crispr-cas9",
+      "source_title": "Case: Genome Editing & the Ethics of CRISPR-Cas9",
+      "confidence": 1.0
+    },
+    {
+      "fact": "CRISPR is a genome editing tool that uses the Cas protein to edit genes.",
+      "quote": "CRISPR is a genome editing tool that uses the Cas protein to edit genes.",
+      "source_url": "https://criticaldebateshsgj.scholasticahq.com/article/144179-ethical-and-scientific-concerns-relating-to-crispr-cas-gene-therapy",
+      "source_title": "Ethical and Scientific Concerns Relating to CRISPR/Cas Gene ...",
+      "confidence": 1.0
+    },
+    {
+      "fact": "CRISPR works by creating a double strand break in DNA, leading to mutations.",
+      "quote": "CRISPR works by creating a double strand break in DNA, and as the cell tries to repair that break, oftentimes one or more nucleotides are either inserted or deleted.",
+      "source_url": "https://criticaldebateshsgj.scholasticahq.com/article/144179-ethical-and-scientific-concerns-relating-to-crispr-cas-gene-therapy",
+      "source_title": "Ethical and Scientific Concerns Relating to CRISPR/Cas Gene ...",
+      "confidence": 1.0
+    },
+    {
+      "fact": "CRISPR has applications in agriculture and treating medical conditions such as cancer.",
+      "quote": "CRISPR has many uses ranging from helping agriculture to treating medical conditions such as cancer, allergic reactions to neurological issues.",
+      "source_url": "https://criticaldebateshsgj.scholasticahq.com/article/144179-ethical-and-scientific-concerns-relating-to-crispr-cas-gene-therapy",
+      "source_title": "Ethical and Scientific Concerns Relating to CRISPR/Cas Gene ...",
+      "confidence": 1.0
+    },
+    {
+      "fact": "Technical concerns with CRISPR include off-target effects and inefficient delivery methods.",
+      "quote": "The technical concerns are primarily related to off-target effects and inefficient delivery methods which can cause dangerous genetic mutations.",
+      "source_url": "https://criticaldebateshsgj.scholasticahq.com/article/144179-ethical-and-scientific-concerns-relating-to-crispr-cas-gene-therapy",
+      "source_title": "Ethical and Scientific Concerns Relating to CRISPR/Cas Gene ...",
+      "confidence": 1.0
+    },
+    {
+      "fact": "Ethical concerns surrounding CRISPR include fears of extreme inequality due to genetic enhancement.",
+      "quote": "the common consensus disapproves of genetic enhancement through CRISPR due to fears of extreme inequality caused by its use.",
+      "source_url": "https://criticaldebateshsgj.scholasticahq.com/article/144179-ethical-and-scientific-concerns-relating-to-crispr-cas-gene-therapy",
+      "source_title": "Ethical and Scientific Concerns Relating to CRISPR/Cas Gene ...",
+      "confidence": 1.0
+    },
+    {
+      "fact": "CRISPR stands for Clustered Regularly Interspaced Short Palindromic Repeats.",
+      "quote": "CRISPR (Clustered Regularly Interspaced Short Palindromic Repeats) is a genetic technology that enables scientists to precisely edit the DNA of living organisms.",
+      "source_url": "https://www.jobaajlearnings.com/casestudies/Case-Study-How-CRISPR-Gene-Editing-is-Revolutionizing-Medicine-and-Agriculture",
+      "source_title": "Case Study: How CRISPR Gene Editing is Revolutionizing Medicine ...",
+      "confidence": 1.0
+    },
+    {
+      "fact": "CRISPR-Cas9 was developed by scientists Jennifer Doudna and Emmanuelle Charpentier in 2012.",
+      "quote": "In 2012, scientists Jennifer Doudna and Emmanuelle Charpentier harnessed this natural system and repurposed it for gene editing, leading to the birth of CRISPR-Cas9 as a tool for genetic modifications.",
+      "source_url": "https://www.jobaajlearnings.com/casestudies/Case-Study-How-CRISPR-Gene-Editing-is-Revolutionizing-Medicine-and-Agriculture",
+      "source_title": "Case Study: How CRISPR Gene Editing is Revolutionizing Medicine ...",
+      "confidence": 1.0
+    },
+    {
+      "fact": "CRISPR technology allows for faster, cheaper, and more accurate genetic engineering.",
+      "quote": "The introduction of CRISPR-Cas9 allowed for genetic engineering at an unprecedented scale\u2014faster, cheaper, and more accurate than ever before.",
+      "source_url": "https://www.jobaajlearnings.com/casestudies/Case-Study-How-CRISPR-Gene-Editing-is-Revolutionizing-Medicine-and-Agriculture",
+      "source_title": "Case Study: How CRISPR Gene Editing is Revolutionizing Medicine ...",
+      "confidence": 1.0
+    },
+    {
+      "fact": "Ethical concerns surrounding CRISPR include the potential for designer babies and unintended genetic mutations.",
+      "quote": "The ethical debate around germline editing (altering DNA in eggs, sperm, or embryos) is fierce, with some arguing that it could lead to a world of genetic inequality or even discrimination.",
+      "source_url": "https://www.jobaajlearnings.com/casestudies/Case-Study-How-CRISPR-Gene-Editing-is-Revolutionizing-Medicine-and-Agriculture",
+      "source_title": "Case Study: How CRISPR Gene Editing is Revolutionizing Medicine ...",
+      "confidence": 1.0
+    },
+    {
+      "fact": "CRISPR technology has potential applications in curing genetic diseases, enhancing crops, and cancer treatment.",
+      "quote": "The most promising application of CRISPR lies in the potential to cure genetic diseases... CRISPR has revolutionized agriculture by allowing scientists to edit crops for greater resistance to disease... CRISPR technology is also showing promise in cancer therapy.",
+      "source_url": "https://www.jobaajlearnings.com/casestudies/Case-Study-How-CRISPR-Gene-Editing-is-Revolutionizing-Medicine-and-Agriculture",
+      "source_title": "Case Study: How CRISPR Gene Editing is Revolutionizing Medicine ...",
+      "confidence": 1.0
+    },
+    {
+      "fact": "CRISPR-Cas9 is a gene-editing technology that allows for precise modifications to the genome.",
+      "quote": "CRISPR/Cas9 gene-editing technology is the ideal tool of the future for treating diseases by permanently correcting deleterious base mutations or disrupting disease-causing genes with great precision and efficiency.",
+      "source_url": "https://www.nature.com/articles/s41392-023-01309-7",
+      "source_title": "CRISPR/Cas9 therapeutics: progress and prospects - Nature",
+      "confidence": 0.9
+    },
+    {
+      "fact": "The CRISPR-Cas9 system evolved as a defense mechanism in bacteria and archaea.",
+      "quote": "The CRISPR/Cas9 system evolved naturally in bacteria and archaea as a defense mechanism against phage infection and plasmid transfer.",
+      "source_url": "https://www.nature.com/articles/s41392-023-01309-7",
+      "source_title": "CRISPR/Cas9 therapeutics: progress and prospects - Nature",
+      "confidence": 0.8
+    },
+    {
+      "fact": "The guide RNA (sgRNA) directs Cas9 to specific DNA sequences for editing.",
+      "quote": "By changing the nucleotide sequence of a small segment of guide RNA, CRISPR/Cas9 allows the accurate targeting of almost any desired genomic locus for the purpose of correcting disease-causing mutations or silencing genes associated with disease onset.",
+      "source_url": "https://www.nature.com/articles/s41392-023-01309-7",
+      "source_title": "CRISPR/Cas9 therapeutics: progress and prospects - Nature",
+      "confidence": 0.9
+    },
+    {
+      "fact": "The preferred protospacer-adjacent motif (PAM) for Streptococcus pyogenes Cas9 is NGG.",
+      "quote": "The preferred PAM by Streptococcus pyogenes Cas9 (SpCas9) is NGG, which is common in the genomes of most organisms.",
+      "source_url": "https://www.nature.com/articles/s41392-023-01309-7",
+      "source_title": "CRISPR/Cas9 therapeutics: progress and prospects - Nature",
+      "confidence": 0.8
+    },
+    {
+      "fact": "CRISPR-Cas9 has potential applications in treating cancers, cardiovascular diseases, sickle cell anemia, and neurodegenerative diseases.",
+      "quote": "Promising applications for this technology include the treatment of cancers, cardiovascular diseases, sickle cell anemia, and neurodegenerative disease.",
+      "source_url": "https://www.nature.com/articles/s41392-023-01309-7",
+      "source_title": "CRISPR/Cas9 therapeutics: progress and prospects - Nature",
+      "confidence": 0.9
+    }
+  ],
+  "sources": {
+    "https://www.genoway.com/technologies/crispr-cas9-gene-editing": {
+      "url": "https://www.genoway.com/technologies/crispr-cas9-gene-editing",
+      "title": "CRISPR/Cas9 gene editing - genOway",
+      "source_id": 1,
+      "evidence_count": 5
+    },
+    "https://lifesciences.danaher.com/us/en/library/crispr-cas9.html": {
+      "url": "https://lifesciences.danaher.com/us/en/library/crispr-cas9.html",
+      "title": "CRISPR-Cas9 Technology: Mechanism & Gene Editing Solutions",
+      "source_id": 2,
+      "evidence_count": 5
+    },
+    "https://www.integra-biosciences.com/united-states/en/blog/article/what-crispr-cas9-and-how-does-it-work": {
+      "url": "https://www.integra-biosciences.com/united-states/en/blog/article/what-crispr-cas9-and-how-does-it-work",
+      "title": "What is CRISPR-Cas9 and how does it work? - INTEGRA Biosciences",
+      "source_id": 3,
+      "evidence_count": 5
+    },
+    "https://en.wikipedia.org/wiki/CRISPR_gene_editing": {
+      "url": "https://en.wikipedia.org/wiki/CRISPR_gene_editing",
+      "title": "CRISPR gene editing - Wikipedia",
+      "source_id": 4,
+      "evidence_count": 5
+    },
+    "https://www.sciencedirect.com/science/article/pii/S235230422300079X": {
+      "url": "https://www.sciencedirect.com/science/article/pii/S235230422300079X",
+      "title": "Clinical applications of the CRISPR/Cas9 genome-editing system",
+      "source_id": 5,
+      "evidence_count": 5
+    },
+    "https://www.bmbreports.org/view.html?uid=1938&vmd=Full": {
+      "url": "https://www.bmbreports.org/view.html?uid=1938&vmd=Full",
+      "title": "Applications of CRISPR technologies to the development of gene ...",
+      "source_id": 6,
+      "evidence_count": 5
+    },
+    "https://pmc.ncbi.nlm.nih.gov/articles/PMC7129066/": {
+      "url": "https://pmc.ncbi.nlm.nih.gov/articles/PMC7129066/",
+      "title": "Bioethical issues in genome editing by CRISPR-Cas9 technology",
+      "source_id": 7,
+      "evidence_count": 5
+    },
+    "https://onlineethics.org/cases/ethics-emerging-technologies-life-sciences/case-genome-editing-ethics-crispr-cas9": {
+      "url": "https://onlineethics.org/cases/ethics-emerging-technologies-life-sciences/case-genome-editing-ethics-crispr-cas9",
+      "title": "Case: Genome Editing & the Ethics of CRISPR-Cas9",
+      "source_id": 8,
+      "evidence_count": 5
+    },
+    "https://criticaldebateshsgj.scholasticahq.com/article/144179-ethical-and-scientific-concerns-relating-to-crispr-cas-gene-therapy": {
+      "url": "https://criticaldebateshsgj.scholasticahq.com/article/144179-ethical-and-scientific-concerns-relating-to-crispr-cas-gene-therapy",
+      "title": "Ethical and Scientific Concerns Relating to CRISPR/Cas Gene ...",
+      "source_id": 9,
+      "evidence_count": 5
+    },
+    "https://rsawa.research.ucla.edu/wp-content/uploads/hazard-communication-crispr-cas9.pdf": {
+      "url": "https://rsawa.research.ucla.edu/wp-content/uploads/hazard-communication-crispr-cas9.pdf",
+      "title": "[PDF] CRISPR/Cas9 Technology DEFINITIONS RISKS",
+      "source_id": 10,
+      "evidence_count": 0
+    },
+    "https://www.taconic.com/resources/crispr-genome-engineering-advantages-limitations": {
+      "url": "https://www.taconic.com/resources/crispr-genome-engineering-advantages-limitations",
+      "title": "CRISPR/Cas9: Advantages, Limitations, and Future in Mouse Models",
+      "source_id": 11,
+      "evidence_count": 0
+    },
+    "https://karger.com/mpp/article/doi/10.1159/000547334/930642/Challenges-and-Opportunities-in-the-Application-of": {
+      "url": "https://karger.com/mpp/article/doi/10.1159/000547334/930642/Challenges-and-Opportunities-in-the-Application-of",
+      "title": "Challenges and Opportunities in the Application of CRISPR-Cas9",
+      "source_id": 12,
+      "evidence_count": 0
+    },
+    "https://www.jobaajlearnings.com/casestudies/Case-Study-How-CRISPR-Gene-Editing-is-Revolutionizing-Medicine-and-Agriculture": {
+      "url": "https://www.jobaajlearnings.com/casestudies/Case-Study-How-CRISPR-Gene-Editing-is-Revolutionizing-Medicine-and-Agriculture",
+      "title": "Case Study: How CRISPR Gene Editing is Revolutionizing Medicine ...",
+      "source_id": 13,
+      "evidence_count": 5
+    },
+    "https://www.nature.com/articles/s41392-023-01309-7": {
+      "url": "https://www.nature.com/articles/s41392-023-01309-7",
+      "title": "CRISPR/Cas9 therapeutics: progress and prospects - Nature",
+      "source_id": 14,
+      "evidence_count": 5
+    },
+    "https://automata.tech/blog/crispr-agriculture": {
+      "url": "https://automata.tech/blog/crispr-agriculture",
+      "title": "CRISPR in agriculture: applications, benefits and risks - Automata",
+      "source_id": 15,
+      "evidence_count": 0
+    }
+  },
+  "searches_done": [
+    "CRISPR-Cas9 mechanism of action",
+    "Applications of CRISPR-Cas9 in genetic engineering",
+    "Ethical issues in CRISPR-Cas9 technology",
+    "Risks and limitations of CRISPR-Cas9",
+    "CRISPR-Cas9 in medicine and agriculture"
+  ],
+  "verified_claims": [
+    {
+      "claim": "CRISPR-Cas9 requires two components: a Cas enzyme and a single guide RNA (sgRNA).",
+      "supported": true,
+      "supporting_evidence": [
+        1,
+        6
+      ],
+      "confidence": 1.0,
+      "notes": "Both sources confirm the requirement of a Cas enzyme and sgRNA for CRISPR-Cas9."
+    },
+    {
+      "claim": "The target sequence for CRISPR-Cas9 must be followed by a Protospacer Adjacent Motif (PAM) sequence.",
+      "supported": true,
+      "supporting_evidence": [
+        2,
+        54
+      ],
+      "confidence": 1.0,
+      "notes": "The presence of a PAM sequence is necessary for CRISPR-Cas9 targeting."
+    },
+    {
+      "claim": "CRISPR-Cas9 creates double-strand breaks that can lead to Knockouts (KO) or Knockins (KI).",
+      "supported": true,
+      "supporting_evidence": [
+        3,
+        19,
+        20
+      ],
+      "confidence": 1.0,
+      "notes": "Double-strand breaks can result in knockouts through NHEJ and knockins through HDR."
+    },
+    {
+      "claim": "Efficacy of CRISPR-Cas9 varies significantly across different target sequences.",
+      "supported": true,
+      "supporting_evidence": [
+        4
+      ],
+      "confidence": 1.0,
+      "notes": "Efficacy is influenced by the target sequence."
+    },
+    {
+      "claim": "CRISPR-Cas9 technology has been shown to have off-target effects.",
+      "supported": true,
+      "supporting_evidence": [
+        5,
+        30,
+        40,
+        44
+      ],
+      "confidence": 1.0,
+      "notes": "Off-target effects are a known issue with CRISPR-Cas9."
+    },
+    {
+      "claim": "CRISPR-Cas9 consists of two main components: guide RNA (gRNA) and Cas9 protein.",
+      "supported": true,
+      "supporting_evidence": [
+        6,
+        27
+      ],
+      "confidence": 1.0,
+      "notes": "The system requires gRNA and Cas9 protein."
+    },
+    {
+      "claim": "The gRNA directs the Cas9 protein to the specific site on the DNA for editing.",
+      "supported": true,
+      "supporting_evidence": [
+        7,
+        53
+      ],
+      "confidence": 1.0,
+      "notes": "gRNA guides Cas9 to the target DNA sequence."
+    },
+    {
+      "claim": "Cas9 protein acts like molecular 'scissors' that can cut DNA.",
+      "supported": true,
+      "supporting_evidence": [
+        8,
+        18
+      ],
+      "confidence": 1.0,
+      "notes": "Cas9 functions as molecular scissors to cut DNA."
+    },
+    {
+      "claim": "CRISPR-Cas9 can introduce permanent changes to the cell genome.",
+      "supported": true,
+      "supporting_evidence": [
+        9
+      ],
+      "confidence": 1.0,
+      "notes": "The technology can result in permanent genomic changes."
+    },
+    {
+      "claim": "CRISPR-Cas9 can be used for gene therapy to correct genetic mutations.",
+      "supported": true,
+      "supporting_evidence": [
+        10,
+        21,
+        24
+      ],
+      "confidence": 1.0,
+      "notes": "CRISPR-Cas9 has applications in gene therapy."
+    },
+    {
+      "claim": "CRISPR-Cas9 is a genome editing technology used to change parts of the genome by removing, adding, or altering sections of DNA.",
+      "supported": true,
+      "supporting_evidence": [
+        11,
+        16
+      ],
+      "confidence": 1.0,
+      "notes": "The technology is used for genome editing."
+    },
+    {
+      "claim": "CRISPR-Cas9 uses a pre-designed RNA sequence to guide the Cas9 enzyme to the location where the genome needs to be altered.",
+      "supported": true,
+      "supporting_evidence": [
+        12,
+        53
+      ],
+      "confidence": 1.0,
+      "notes": "The RNA sequence guides Cas9 to the target site."
+    },
+    {
+      "claim": "The Cas9 enzyme cleaves the DNA strands, and the cell's natural repair mechanism joins the two ends together by removing, adding, or replacing certain sections.",
+      "supported": true,
+      "supporting_evidence": [
+        13,
+        28
+      ],
+      "confidence": 1.0,
+      "notes": "DNA repair mechanisms follow Cas9-induced cleavage."
+    },
+    {
+      "claim": "CRISPR-Cas9 has its origin in the immune system of bacteria and archaea.",
+      "supported": true,
+      "supporting_evidence": [
+        14,
+        52
+      ],
+      "confidence": 1.0,
+      "notes": "The system evolved as a bacterial and archaeal defense mechanism."
+    },
+    {
+      "claim": "The CRISPR array includes sequences that are transcribed into a trans-activating CRISPR RNA (tracrRNA) and a sequence that produces a Cas9 enzyme.",
+      "supported": true,
+      "supporting_evidence": [
+        15
+      ],
+      "confidence": 1.0,
+      "notes": "CRISPR arrays transcribe into tracrRNA and Cas9 sequences."
+    },
+    {
+      "claim": "CRISPR-Cas9 is a genetic engineering technique that modifies the genomes of living organisms.",
+      "supported": true,
+      "supporting_evidence": [
+        16
+      ],
+      "confidence": 1.0,
+      "notes": "The technique is used for genetic engineering."
+    },
+    {
+      "claim": "The CRISPR-Cas9 system is based on a bacterial antiviral defense system.",
+      "supported": true,
+      "supporting_evidence": [
+        17,
+        52
+      ],
+      "confidence": 1.0,
+      "notes": "The system is derived from bacterial antiviral defense."
+    },
+    {
+      "claim": "The Cas9 nuclease functions as genetic scissors to introduce modifications in DNA.",
+      "supported": true,
+      "supporting_evidence": [
+        18
+      ],
+      "confidence": 1.0,
+      "notes": "Cas9 acts as genetic scissors for DNA modification."
+    },
+    {
+      "claim": "CRISPR-Cas9 can create knock-in mutations through homology-directed repair (HDR).",
+      "supported": true,
+      "supporting_evidence": [
+        19
+      ],
+      "confidence": 1.0,
+      "notes": "HDR is used for creating knock-in mutations."
+    },
+    {
+      "claim": "CRISPR-Cas9 can create knock-out mutations through non-homologous end joining (NHEJ).",
+      "supported": true,
+      "supporting_evidence": [
+        20
+      ],
+      "confidence": 1.0,
+      "notes": "NHEJ is used for creating knock-out mutations."
+    }
+  ],
+  "confidence": 1.0,
+  "report": "# Research Report on CRISPR-Cas9 Technology\n\n## Introduction\n\nCRISPR-Cas9 is a revolutionary genome editing technology that allows for precise modifications to the DNA of living organisms. Developed by Jennifer Doudna and Emmanuelle Charpentier in 2012, this technology has transformed the fields of genetics and molecular biology by enabling researchers to target specific genes for editing with unprecedented accuracy and efficiency [36], [47]. The CRISPR-Cas9 system is based on a natural defense mechanism found in bacteria and archaea, which uses the Cas9 protein and guide RNA to introduce double-strand breaks in DNA, leading to targeted genetic modifications [14], [52]. This report explores the mechanism of CRISPR-Cas9, its applications, efficacy, and challenges, as well as the ethical considerations surrounding its use.\n\n## Mechanism of CRISPR-Cas9\n\n### Components and Functionality\n\nCRISPR-Cas9 consists of two main components: the Cas9 enzyme and a single guide RNA (sgRNA) [1], [6]. The sgRNA is designed to match a specific DNA sequence, guiding the Cas9 protein to the target site where it acts as molecular 'scissors' to cut the DNA [7], [8]. This targeted cutting is facilitated by the presence of a Protospacer Adjacent Motif (PAM) sequence, which is essential for the Cas9 enzyme to bind and cleave the DNA [2], [54].\n\n### DNA Repair and Genetic Modifications\n\nOnce the DNA is cut, the cell's natural repair mechanisms are activated, leading to either non-homologous end joining (NHEJ) or homology-directed repair (HDR) [3], [28]. NHEJ often results in knock-out mutations by causing insertions or deletions at the break site, while HDR can be used to introduce specific genetic changes, known as knock-ins [19], [20]. These processes enable CRISPR-Cas9 to permanently alter the genome, which can be leveraged for therapeutic purposes [9], [13].\n\n## Applications of CRISPR-Cas9\n\n### Medical Applications\n\nCRISPR-Cas9 holds significant promise for treating a wide range of diseases, including genetic disorders such as cystic fibrosis and sickle cell anemia, as well as cancers and cardiovascular diseases [10], [24], [55]. By correcting deleterious mutations or disrupting disease-causing genes, CRISPR-Cas9 offers a potential curative approach for these conditions [21], [51].\n\n### Agricultural and Other Applications\n\nBeyond medicine, CRISPR-Cas9 is also being applied in agriculture to enhance crop resistance to diseases and improve yields [32], [50]. The technology's versatility extends to various fields, including the development of disease models in experimental animals and the study of gene functions [32].\n\n## Efficacy and Challenges\n\n### Efficacy Variability\n\nThe efficacy of CRISPR-Cas9 can vary significantly depending on the target sequence and the organism being edited [4]. This variability poses challenges in achieving consistent results across different applications and necessitates careful design and optimization of sgRNAs for each target [53].\n\n### Off-Target Effects and Safety Concerns\n\nOne of the major drawbacks of CRISPR-Cas9 is the potential for off-target effects, where unintended genomic sequences are cut, leading to unexpected genetic modifications [5], [29]. These off-target effects raise safety concerns, particularly in therapeutic applications, and highlight the need for improved specificity and delivery methods [30], [44].\n\n## Ethical Considerations\n\nThe use of CRISPR-Cas9, especially in germline editing, raises significant ethical concerns. The potential for creating 'designer babies' and the implications of genetic enhancement have sparked debates about genetic inequality and discrimination [34], [49]. There is a consensus that legislation is needed to ensure the safe and ethical use of CRISPR-Cas9 technology [35].\n\n## Conclusion\n\nCRISPR-Cas9 represents a groundbreaking advancement in genome editing, offering precise and efficient tools for modifying the DNA of living organisms. Its applications in medicine, agriculture, and research hold immense potential for addressing some of the most challenging problems in these fields. However, the technology also presents challenges, including variability in efficacy, off-target effects, and ethical concerns. As CRISPR-Cas9 continues to evolve, addressing these challenges through improved specificity, delivery methods, and ethical guidelines will be crucial for its safe and effective application.\n\n## Sources\n\n1. CRISPR/Cas9 gene editing - genOway\n2. CRISPR-Cas9 Technology: Mechanism & Gene Editing Solutions\n3. What is CRISPR-Cas9 and how does it work? - INTEGRA Biosciences\n4. CRISPR gene editing - Wikipedia\n5. Clinical applications of the CRISPR/Cas9 genome-editing system\n6. Applications of CRISPR technologies to the development of gene ...\n7. Bioethical issues in genome editing by CRISPR-Cas9 technology\n8. Case: Genome Editing & the Ethics of CRISPR-Cas9\n9. Ethical and Scientific Concerns Relating to CRISPR/Cas Gene ...\n10. CRISPR/Cas9 therapeutics: progress and prospects - Nature",
+  "metadata": {
+    "iterations": 1,
+    "coverage": 0.8,
+    "confidence": 1.0,
+    "sources_count": 15,
+    "evidence_count": 55,
+    "mode": "single",
+    "wall_time_s": 189.82
+  }
+}

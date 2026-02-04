@@ -1,0 +1,600 @@
+{
+  "query": "Who is Geoffrey Hinton and what are his major contributions to AI?",
+  "mode": "single",
+  "max_iterations": 3,
+  "min_coverage": 0.7,
+  "understanding": {
+    "understanding": "The user wants to know who Geoffrey Hinton is and what his major contributions to artificial intelligence are.",
+    "is_clear": true,
+    "ambiguity_type": "none",
+    "ambiguity_reason": "",
+    "clarification_question": "",
+    "clarification_options": []
+  },
+  "is_ambiguous": false,
+  "clarification_question": "",
+  "clarification_options": [],
+  "research_questions": [
+    "Who is Geoffrey Hinton and what is his background?",
+    "What are Geoffrey Hinton's major contributions to the field of artificial intelligence?",
+    "How have Geoffrey Hinton's contributions impacted the development of AI technologies?",
+    "What are some notable awards or recognitions received by Geoffrey Hinton?",
+    "What is Geoffrey Hinton's current role and focus in the field of AI?"
+  ],
+  "aspects_to_cover": [
+    "Geoffrey Hinton's educational and professional background",
+    "Major AI theories and technologies developed by Geoffrey Hinton",
+    "Impact of Hinton's work on the AI industry and academia",
+    "Awards and recognitions received by Geoffrey Hinton",
+    "Current projects and research interests of Geoffrey Hinton"
+  ],
+  "pending_searches": [
+    "Impact of Geoffrey Hinton's work on modern AI technologies",
+    "Geoffrey Hinton's current projects or initiatives in AI"
+  ],
+  "worker_results": [],
+  "done_workers": 0,
+  "iteration": 1,
+  "coverage": 0.8,
+  "ready_to_write": false,
+  "gaps": [
+    "Detailed analysis of how Hinton's contributions specifically impacted AI technologies",
+    "Current projects or specific initiatives Hinton is focusing on after leaving Google"
+  ],
+  "evidence": [
+    {
+      "fact": "Geoffrey Hinton was born on December 6, 1947, in London, England.",
+      "quote": "Geoffrey Hinton (born December 6, 1947, London, England) is a British-Canadian cognitive psychologist and computer scientist known as the 'godfather of AI.'",
+      "source_url": "https://www.britannica.com/biography/Geoffrey-Hinton",
+      "source_title": "Geoffrey Hinton | Biography, Nobel Prize, Machine Learning, AI ...",
+      "confidence": 1.0
+    },
+    {
+      "fact": "Hinton received a Ph.D. in AI from the University of Edinburgh in 1978.",
+      "quote": "He then attended the University of Edinburgh, where he received a Ph.D. in AI in 1978.",
+      "source_url": "https://www.britannica.com/biography/Geoffrey-Hinton",
+      "source_title": "Geoffrey Hinton | Biography, Nobel Prize, Machine Learning, AI ...",
+      "confidence": 1.0
+    },
+    {
+      "fact": "Hinton contributed to the development of the backpropagation algorithm.",
+      "quote": "Hinton worked with psychologist David Rumelhart and computer scientist Ronald J. Williams to develop an algorithm to work backward from output to input when measuring error. The process, called 'backpropagation,' was discussed by the trio in 1986 in an influential paper that laid the groundwork for neural network development.",
+      "source_url": "https://www.britannica.com/biography/Geoffrey-Hinton",
+      "source_title": "Geoffrey Hinton | Biography, Nobel Prize, Machine Learning, AI ...",
+      "confidence": 1.0
+    },
+    {
+      "fact": "Hinton co-developed AlexNet, an eight-layer neural network program, in 2012.",
+      "quote": "In 2012 Hinton and two of his graduate students, Alex Krizhevsky and Ilya Sutskever, developed an eight-layer neural network program, which they named AlexNet, to identify images on ImageNet.",
+      "source_url": "https://www.britannica.com/biography/Geoffrey-Hinton",
+      "source_title": "Geoffrey Hinton | Biography, Nobel Prize, Machine Learning, AI ...",
+      "confidence": 1.0
+    },
+    {
+      "fact": "Hinton was awarded the 2024 Nobel Prize in Physics.",
+      "quote": "He was awarded the 2024 Nobel Prize in Physics and shared the prize with American physicist John J. Hopfield.",
+      "source_url": "https://www.britannica.com/biography/Geoffrey-Hinton",
+      "source_title": "Geoffrey Hinton | Biography, Nobel Prize, Machine Learning, AI ...",
+      "confidence": 1.0
+    },
+    {
+      "fact": "Geoffrey Hinton was born on December 6, 1947.",
+      "quote": "Geoffrey Everest Hinton (born December 6, 1947) is a British-Canadian computer scientist and cognitive psychologist.",
+      "source_url": "https://programming-ocean.com/cv/geoffrey-hinton.php",
+      "source_title": "Geoffrey Hinton - Detailed Biography",
+      "confidence": 1.0
+    },
+    {
+      "fact": "Hinton is known as the 'Godfather of AI' for his foundational contributions to artificial intelligence.",
+      "quote": "He is often referred to as the 'Godfather of AI' for his foundational contributions to the field.",
+      "source_url": "https://programming-ocean.com/cv/geoffrey-hinton.php",
+      "source_title": "Geoffrey Hinton - Detailed Biography",
+      "confidence": 1.0
+    },
+    {
+      "fact": "Hinton is University Professor Emeritus at the University of Toronto.",
+      "quote": "Hinton is University Professor Emeritus at the University of Toronto.",
+      "source_url": "https://programming-ocean.com/cv/geoffrey-hinton.php",
+      "source_title": "Geoffrey Hinton - Detailed Biography",
+      "confidence": 1.0
+    },
+    {
+      "fact": "Hinton worked for Google Brain from 2013 to 2023.",
+      "quote": "From 2013 to 2023, he worked for Google Brain and the University of Toronto.",
+      "source_url": "https://programming-ocean.com/cv/geoffrey-hinton.php",
+      "source_title": "Geoffrey Hinton - Detailed Biography",
+      "confidence": 1.0
+    },
+    {
+      "fact": "Hinton announced his departure from Google in May 2023 to focus on raising awareness about AI risks.",
+      "quote": "In May 2023, he announced his departure from Google to focus on raising awareness about the risks of AI technologies.",
+      "source_url": "https://programming-ocean.com/cv/geoffrey-hinton.php",
+      "source_title": "Geoffrey Hinton - Detailed Biography",
+      "confidence": 1.0
+    },
+    {
+      "fact": "Geoffrey Hinton was born on December 6, 1947, in London, England.",
+      "quote": "Geoffrey Everest Hinton (born 6 December 1947) is a British-Canadian computer scientist...",
+      "source_url": "https://en.wikipedia.org/wiki/Geoffrey_Hinton",
+      "source_title": "Geoffrey Hinton - Wikipedia",
+      "confidence": 1.0
+    },
+    {
+      "fact": "Hinton is known for his work on artificial neural networks and is referred to as 'the Godfather of AI'.",
+      "quote": "Hinton is known for his work on artificial neural networks, which earned him the title 'the Godfather of AI'.",
+      "source_url": "https://en.wikipedia.org/wiki/Geoffrey_Hinton",
+      "source_title": "Geoffrey Hinton - Wikipedia",
+      "confidence": 1.0
+    },
+    {
+      "fact": "Hinton co-authored a highly cited paper in 1986 that popularized the backpropagation algorithm.",
+      "quote": "Hinton was co-author of a highly cited paper published in 1986 that popularised the backpropagation algorithm for training multi-layer neural networks.",
+      "source_url": "https://en.wikipedia.org/wiki/Geoffrey_Hinton",
+      "source_title": "Geoffrey Hinton - Wikipedia",
+      "confidence": 1.0
+    },
+    {
+      "fact": "Hinton was a key figure in the development of AlexNet, which won the ImageNet challenge in 2012.",
+      "quote": "The image-recognition milestone of the AlexNet designed in collaboration with his students Alex Krizhevsky and Ilya Sutskever for the ImageNet challenge 2012 was a breakthrough in the field of computer vision.",
+      "source_url": "https://en.wikipedia.org/wiki/Geoffrey_Hinton",
+      "source_title": "Geoffrey Hinton - Wikipedia",
+      "confidence": 1.0
+    },
+    {
+      "fact": "Hinton received the Turing Award in 2018 for his work on deep learning.",
+      "quote": "Hinton received the 2018 Turing Award, together with Yoshua Bengio and Yann LeCun for their work on deep learning.",
+      "source_url": "https://en.wikipedia.org/wiki/Geoffrey_Hinton",
+      "source_title": "Geoffrey Hinton - Wikipedia",
+      "confidence": 1.0
+    },
+    {
+      "fact": "Geoffrey Hinton is often referred to as the 'godfather of AI'.",
+      "quote": "Geoffrey Hinton is a famous AI researcher who is often referred to as the 'godfather of AI' because of his foundational work on neural networks and deep learning from the 1980s until today.",
+      "source_url": "https://www.lesswrong.com/posts/zJz8KXSRsproArXq5/geoffrey-hinton-on-the-past-present-and-future-of-ai",
+      "source_title": "Geoffrey Hinton on the Past, Present, and Future of AI - LessWrong",
+      "confidence": 1.0
+    },
+    {
+      "fact": "Hinton introduced the backpropagation algorithm for neural network training in 1986.",
+      "quote": "Arguably his most significant contribution to the field of AI was the introduction of the backpropagation algorithm for neural network training in 1986 which is widely used to train neural networks today.",
+      "source_url": "https://www.lesswrong.com/posts/zJz8KXSRsproArXq5/geoffrey-hinton-on-the-past-present-and-future-of-ai",
+      "source_title": "Geoffrey Hinton on the Past, Present, and Future of AI - LessWrong",
+      "confidence": 1.0
+    },
+    {
+      "fact": "Hinton was involved in the development of dropout regularization, AlexNet, the RMSProp optimization algorithm, and the t-SNE visualization method.",
+      "quote": "He was also involved in the development of dropout regularization, AlexNet, the RMSProp optimization algorithm, and the t-SNE visualization method.",
+      "source_url": "https://www.lesswrong.com/posts/zJz8KXSRsproArXq5/geoffrey-hinton-on-the-past-present-and-future-of-ai",
+      "source_title": "Geoffrey Hinton on the Past, Present, and Future of AI - LessWrong",
+      "confidence": 1.0
+    },
+    {
+      "fact": "Hinton won the Turing Award in 2018 for his work on deep learning.",
+      "quote": "In 2018 he won the Turing award for his work on deep learning along with Yoshua Bengio and Yann LeCun.",
+      "source_url": "https://www.lesswrong.com/posts/zJz8KXSRsproArXq5/geoffrey-hinton-on-the-past-present-and-future-of-ai",
+      "source_title": "Geoffrey Hinton on the Past, Present, and Future of AI - LessWrong",
+      "confidence": 1.0
+    },
+    {
+      "fact": "Hinton won the Nobel Prize in Physics in 2024 for his work on Boltzmann machines.",
+      "quote": "In 2024, Hinton won the Nobel Prize in Physics for his work on Boltzmann machines.",
+      "source_url": "https://www.lesswrong.com/posts/zJz8KXSRsproArXq5/geoffrey-hinton-on-the-past-present-and-future-of-ai",
+      "source_title": "Geoffrey Hinton on the Past, Present, and Future of AI - LessWrong",
+      "confidence": 1.0
+    },
+    {
+      "fact": "Geoffrey Hinton is the Chief Scientific Advisor Emeritus at the Vector Institute.",
+      "quote": "Geoffrey Hinton Chief Scientific Advisor Emeritus",
+      "source_url": "https://vectorinstitute.ai/team/geoffrey-hinton/",
+      "source_title": "Geoffrey Hinton - Vector Institute for Artificial Intelligence",
+      "confidence": 1.0
+    },
+    {
+      "fact": "Geoffrey Hinton is a Distinguished Professor of Computer Science at the University of Toronto.",
+      "quote": "Emeritus Distinguished Professor of Computer Science, University of Toronto",
+      "source_url": "https://vectorinstitute.ai/team/geoffrey-hinton/",
+      "source_title": "Geoffrey Hinton - Vector Institute for Artificial Intelligence",
+      "confidence": 1.0
+    },
+    {
+      "fact": "Geoffrey Hinton received the Nobel Prize in Physics in 2024.",
+      "quote": "Recipient Nobel Prize in Physics 2024",
+      "source_url": "https://vectorinstitute.ai/team/geoffrey-hinton/",
+      "source_title": "Geoffrey Hinton - Vector Institute for Artificial Intelligence",
+      "confidence": 1.0
+    },
+    {
+      "fact": "Geoffrey Hinton was awarded the ACM A.M. Turing Award in 2018.",
+      "quote": "Recipient ACM A.M. Turing Award",
+      "source_url": "https://vectorinstitute.ai/team/geoffrey-hinton/",
+      "source_title": "Geoffrey Hinton - Vector Institute for Artificial Intelligence",
+      "confidence": 1.0
+    },
+    {
+      "fact": "Geoffrey Hinton was one of the researchers who introduced the backpropagation algorithm.",
+      "quote": "He was one of the researchers who introduced the backpropagation algorithm",
+      "source_url": "https://vectorinstitute.ai/team/geoffrey-hinton/",
+      "source_title": "Geoffrey Hinton - Vector Institute for Artificial Intelligence",
+      "confidence": 1.0
+    },
+    {
+      "fact": "Geoffrey Hinton is widely regarded as the 'Godfather of Deep Learning.'",
+      "quote": "Geoffrey Hinton, widely regarded as the 'Godfather of Deep Learning,' has profoundly shaped the field of artificial intelligence (AI) through his pioneering work on neural networks and deep learning.",
+      "source_url": "https://medium.com/@frankmorales_91352/geoffrey-hintons-landmark-contributions-to-deep-learning-670e2f0020ff",
+      "source_title": "Geoffrey Hinton's Landmark Contributions to Deep Learning - Medium",
+      "confidence": 1.0
+    },
+    {
+      "fact": "Hinton co-authored a seminal paper on backpropagation in 1986.",
+      "quote": "In 1986, he co-authored a seminal paper with David E. Rumelhart and Ronald J. Williams, Learning representations by back-propagating errors.",
+      "source_url": "https://medium.com/@frankmorales_91352/geoffrey-hintons-landmark-contributions-to-deep-learning-670e2f0020ff",
+      "source_title": "Geoffrey Hinton's Landmark Contributions to Deep Learning - Medium",
+      "confidence": 1.0
+    },
+    {
+      "fact": "Hinton's work on backpropagation popularized the training of multi-layered neural networks.",
+      "quote": "This work popularized the backpropagation algorithm, which trains multi-layered neural networks by iteratively adjusting weights to minimize prediction errors.",
+      "source_url": "https://medium.com/@frankmorales_91352/geoffrey-hintons-landmark-contributions-to-deep-learning-670e2f0020ff",
+      "source_title": "Geoffrey Hinton's Landmark Contributions to Deep Learning - Medium",
+      "confidence": 1.0
+    },
+    {
+      "fact": "Hinton contributed to the development of Boltzmann machines in the 1980s.",
+      "quote": "In the 1980s, Hinton also made significant strides in unsupervised learning through his work on Boltzmann machines.",
+      "source_url": "https://medium.com/@frankmorales_91352/geoffrey-hintons-landmark-contributions-to-deep-learning-670e2f0020ff",
+      "source_title": "Geoffrey Hinton's Landmark Contributions to Deep Learning - Medium",
+      "confidence": 1.0
+    },
+    {
+      "fact": "Hinton introduced Deep Belief Networks (DBNs) in 2006.",
+      "quote": "First, in the paper A fast learning algorithm for deep belief nets, co-authored with Ruslan Salakhutdinov, Simon Osindero, and Yee Whye Teh, he introduced Deep Belief Networks (DBNs).",
+      "source_url": "https://medium.com/@frankmorales_91352/geoffrey-hintons-landmark-contributions-to-deep-learning-670e2f0020ff",
+      "source_title": "Geoffrey Hinton's Landmark Contributions to Deep Learning - Medium",
+      "confidence": 1.0
+    },
+    {
+      "fact": "Geoffrey Hinton was awarded the 2024 Nobel Prize in Physics.",
+      "quote": "The Royal Swedish Academy of Sciences today awarded the 2024 Nobel Prize in Physics to Geoffrey E. Hinton of the University of Toronto and John J. Hopfield of Princeton University in recognition of their foundational work in machine learning with artificial neural networks.",
+      "source_url": "https://www.csd.cs.cmu.edu/news/former-csd-faculty-geoffrey-hinton-awarded-2024-nobel-prize-in-physics",
+      "source_title": "Former CSD Faculty Geoffrey Hinton Awarded 2024 Nobel Prize in ...",
+      "confidence": 1.0
+    },
+    {
+      "fact": "Geoffrey Hinton served on the Computer Science Department faculty at Carnegie Mellon University from 1982 to 1987.",
+      "quote": "Hinton served on the Computer Science Department faculty at Carnegie Mellon University from 1982-87.",
+      "source_url": "https://www.csd.cs.cmu.edu/news/former-csd-faculty-geoffrey-hinton-awarded-2024-nobel-prize-in-physics",
+      "source_title": "Former CSD Faculty Geoffrey Hinton Awarded 2024 Nobel Prize in ...",
+      "confidence": 1.0
+    },
+    {
+      "fact": "Geoffrey Hinton co-authored an influential paper on the backpropagation algorithm.",
+      "quote": "At CMU, he co-authored an influential paper on the backpropagation algorithm, which allows neural networks to discover their own internal representations of data.",
+      "source_url": "https://www.csd.cs.cmu.edu/news/former-csd-faculty-geoffrey-hinton-awarded-2024-nobel-prize-in-physics",
+      "source_title": "Former CSD Faculty Geoffrey Hinton Awarded 2024 Nobel Prize in ...",
+      "confidence": 1.0
+    },
+    {
+      "fact": "Hinton's work on convolutional neural networks cut error rates for object recognition in half.",
+      "quote": "Later, at the University of Toronto, Hinton and his students made improvements to convolutional neural networks that cut error rates for object recognition in half, reshaping the field of computer vision.",
+      "source_url": "https://www.csd.cs.cmu.edu/news/former-csd-faculty-geoffrey-hinton-awarded-2024-nobel-prize-in-physics",
+      "source_title": "Former CSD Faculty Geoffrey Hinton Awarded 2024 Nobel Prize in ...",
+      "confidence": 1.0
+    },
+    {
+      "fact": "Geoffrey Hinton received the ACM Turing Award.",
+      "quote": "As an ACM Turing Award winner (along with Yoshua Bengio and Yann LeCun for their revolutionary work on deep neural networks), Hinton is the second person ever to earn both a Turing Award and a Nobel Prize.",
+      "source_url": "https://www.csd.cs.cmu.edu/news/former-csd-faculty-geoffrey-hinton-awarded-2024-nobel-prize-in-physics",
+      "source_title": "Former CSD Faculty Geoffrey Hinton Awarded 2024 Nobel Prize in ...",
+      "confidence": 1.0
+    },
+    {
+      "fact": "Geoffrey Hinton received his BA in Experimental Psychology from Cambridge in 1970.",
+      "quote": "Geoffrey Hinton received his BA in Experimental Psychology from Cambridge in 1970 and his PhD in Artificial Intelligence from Edinburgh in 1978.",
+      "source_url": "https://research.google.com/pubs/GeoffreyHinton.html?source=post_page---------------------------",
+      "source_title": "Geoffrey E. Hinton - Research at Google",
+      "confidence": 1.0
+    },
+    {
+      "fact": "Geoffrey Hinton obtained his PhD in Artificial Intelligence from Edinburgh in 1978.",
+      "quote": "Geoffrey Hinton received his BA in Experimental Psychology from Cambridge in 1970 and his PhD in Artificial Intelligence from Edinburgh in 1978.",
+      "source_url": "https://research.google.com/pubs/GeoffreyHinton.html?source=post_page---------------------------",
+      "source_title": "Geoffrey E. Hinton - Research at Google",
+      "confidence": 1.0
+    },
+    {
+      "fact": "Geoffrey Hinton was a faculty member in the Computer Science department at Carnegie-Mellon University.",
+      "quote": "He spent five years as a faculty member in the Computer Science department at Carnegie-Mellon University.",
+      "source_url": "https://research.google.com/pubs/GeoffreyHinton.html?source=post_page---------------------------",
+      "source_title": "Geoffrey E. Hinton - Research at Google",
+      "confidence": 1.0
+    },
+    {
+      "fact": "Geoffrey Hinton is currently an emeritus distinguished professor at the University of Toronto.",
+      "quote": "He returned to the University of Toronto where he is now an emeritus distinguished professor.",
+      "source_url": "https://research.google.com/pubs/GeoffreyHinton.html?source=post_page---------------------------",
+      "source_title": "Geoffrey E. Hinton - Research at Google",
+      "confidence": 1.0
+    },
+    {
+      "fact": "Geoffrey Hinton has been working half-time for Google since 2013.",
+      "quote": "Since 2013 he has been working half-time for Google in Mountain View and Toronto.",
+      "source_url": "https://research.google.com/pubs/GeoffreyHinton.html?source=post_page---------------------------",
+      "source_title": "Geoffrey E. Hinton - Research at Google",
+      "confidence": 1.0
+    }
+  ],
+  "sources": {
+    "https://www.britannica.com/biography/Geoffrey-Hinton": {
+      "url": "https://www.britannica.com/biography/Geoffrey-Hinton",
+      "title": "Geoffrey Hinton | Biography, Nobel Prize, Machine Learning, AI ...",
+      "source_id": 1,
+      "evidence_count": 5
+    },
+    "https://programming-ocean.com/cv/geoffrey-hinton.php": {
+      "url": "https://programming-ocean.com/cv/geoffrey-hinton.php",
+      "title": "Geoffrey Hinton - Detailed Biography",
+      "source_id": 2,
+      "evidence_count": 5
+    },
+    "https://en.wikipedia.org/wiki/Geoffrey_Hinton": {
+      "url": "https://en.wikipedia.org/wiki/Geoffrey_Hinton",
+      "title": "Geoffrey Hinton - Wikipedia",
+      "source_id": 3,
+      "evidence_count": 5
+    },
+    "https://www.lesswrong.com/posts/zJz8KXSRsproArXq5/geoffrey-hinton-on-the-past-present-and-future-of-ai": {
+      "url": "https://www.lesswrong.com/posts/zJz8KXSRsproArXq5/geoffrey-hinton-on-the-past-present-and-future-of-ai",
+      "title": "Geoffrey Hinton on the Past, Present, and Future of AI - LessWrong",
+      "source_id": 4,
+      "evidence_count": 5
+    },
+    "https://vectorinstitute.ai/team/geoffrey-hinton/": {
+      "url": "https://vectorinstitute.ai/team/geoffrey-hinton/",
+      "title": "Geoffrey Hinton - Vector Institute for Artificial Intelligence",
+      "source_id": 5,
+      "evidence_count": 5
+    },
+    "https://medium.com/@frankmorales_91352/geoffrey-hintons-landmark-contributions-to-deep-learning-670e2f0020ff": {
+      "url": "https://medium.com/@frankmorales_91352/geoffrey-hintons-landmark-contributions-to-deep-learning-670e2f0020ff",
+      "title": "Geoffrey Hinton's Landmark Contributions to Deep Learning - Medium",
+      "source_id": 6,
+      "evidence_count": 5
+    },
+    "https://www.csd.cs.cmu.edu/news/former-csd-faculty-geoffrey-hinton-awarded-2024-nobel-prize-in-physics": {
+      "url": "https://www.csd.cs.cmu.edu/news/former-csd-faculty-geoffrey-hinton-awarded-2024-nobel-prize-in-physics",
+      "title": "Former CSD Faculty Geoffrey Hinton Awarded 2024 Nobel Prize in ...",
+      "source_id": 7,
+      "evidence_count": 5
+    },
+    "https://research.google.com/pubs/GeoffreyHinton.html?source=post_page---------------------------": {
+      "url": "https://research.google.com/pubs/GeoffreyHinton.html?source=post_page---------------------------",
+      "title": "Geoffrey E. Hinton - Research at Google",
+      "source_id": 8,
+      "evidence_count": 5
+    }
+  },
+  "searches_done": [
+    "Geoffrey Hinton biography",
+    "Geoffrey Hinton contributions to AI",
+    "Geoffrey Hinton deep learning",
+    "Geoffrey Hinton awards and recognitions",
+    "Geoffrey Hinton current research"
+  ],
+  "verified_claims": [
+    {
+      "claim": "Geoffrey Hinton was born on December 6, 1947, in London, England.",
+      "supported": true,
+      "supporting_evidence": [
+        1,
+        11
+      ],
+      "confidence": 1.0,
+      "notes": "Multiple sources confirm the birth date and location."
+    },
+    {
+      "claim": "Hinton received a Ph.D. in AI from the University of Edinburgh in 1978.",
+      "supported": true,
+      "supporting_evidence": [
+        2,
+        37
+      ],
+      "confidence": 1.0,
+      "notes": "Consistent information across sources."
+    },
+    {
+      "claim": "Hinton contributed to the development of the backpropagation algorithm.",
+      "supported": true,
+      "supporting_evidence": [
+        3,
+        13,
+        25
+      ],
+      "confidence": 1.0,
+      "notes": "Widely recognized contribution."
+    },
+    {
+      "claim": "Hinton co-developed AlexNet, an eight-layer neural network program, in 2012.",
+      "supported": true,
+      "supporting_evidence": [
+        4,
+        14
+      ],
+      "confidence": 1.0,
+      "notes": "AlexNet is a well-documented project associated with Hinton."
+    },
+    {
+      "claim": "Hinton was awarded the 2024 Nobel Prize in Physics.",
+      "supported": true,
+      "supporting_evidence": [
+        5,
+        31,
+        23
+      ],
+      "confidence": 1.0,
+      "notes": "Multiple sources confirm the award."
+    },
+    {
+      "claim": "Geoffrey Hinton was born on December 6, 1947.",
+      "supported": true,
+      "supporting_evidence": [
+        6,
+        11
+      ],
+      "confidence": 1.0,
+      "notes": "Consistent with other birth date claims."
+    },
+    {
+      "claim": "Hinton is known as the 'Godfather of AI' for his foundational contributions to artificial intelligence.",
+      "supported": true,
+      "supporting_evidence": [
+        7,
+        12,
+        16
+      ],
+      "confidence": 1.0,
+      "notes": "Commonly used title for Hinton."
+    },
+    {
+      "claim": "Hinton is University Professor Emeritus at the University of Toronto.",
+      "supported": true,
+      "supporting_evidence": [
+        8,
+        39
+      ],
+      "confidence": 1.0,
+      "notes": "Confirmed by multiple sources."
+    },
+    {
+      "claim": "Hinton worked for Google Brain from 2013 to 2023.",
+      "supported": true,
+      "supporting_evidence": [
+        9,
+        40
+      ],
+      "confidence": 1.0,
+      "notes": "Consistent employment timeline."
+    },
+    {
+      "claim": "Hinton announced his departure from Google in May 2023 to focus on raising awareness about AI risks.",
+      "supported": true,
+      "supporting_evidence": [
+        10
+      ],
+      "confidence": 1.0,
+      "notes": "Specific departure date and reason provided."
+    },
+    {
+      "claim": "Geoffrey Hinton was born on December 6, 1947, in London, England.",
+      "supported": true,
+      "supporting_evidence": [
+        1,
+        11
+      ],
+      "confidence": 1.0,
+      "notes": "Duplicate claim, consistently supported."
+    },
+    {
+      "claim": "Hinton is known for his work on artificial neural networks and is referred to as 'the Godfather of AI'.",
+      "supported": true,
+      "supporting_evidence": [
+        12,
+        16
+      ],
+      "confidence": 1.0,
+      "notes": "Consistent with other claims about his title."
+    },
+    {
+      "claim": "Hinton co-authored a highly cited paper in 1986 that popularized the backpropagation algorithm.",
+      "supported": true,
+      "supporting_evidence": [
+        13,
+        27
+      ],
+      "confidence": 1.0,
+      "notes": "Widely recognized contribution."
+    },
+    {
+      "claim": "Hinton was a key figure in the development of AlexNet, which won the ImageNet challenge in 2012.",
+      "supported": true,
+      "supporting_evidence": [
+        4,
+        14
+      ],
+      "confidence": 1.0,
+      "notes": "AlexNet's success is well-documented."
+    },
+    {
+      "claim": "Hinton received the Turing Award in 2018 for his work on deep learning.",
+      "supported": true,
+      "supporting_evidence": [
+        15,
+        19,
+        24
+      ],
+      "confidence": 1.0,
+      "notes": "Turing Award is a major recognition in the field."
+    },
+    {
+      "claim": "Geoffrey Hinton is often referred to as the 'godfather of AI'.",
+      "supported": true,
+      "supporting_evidence": [
+        16,
+        26
+      ],
+      "confidence": 1.0,
+      "notes": "Commonly used title for Hinton."
+    },
+    {
+      "claim": "Hinton introduced the backpropagation algorithm for neural network training in 1986.",
+      "supported": true,
+      "supporting_evidence": [
+        17,
+        27
+      ],
+      "confidence": 1.0,
+      "notes": "Backpropagation is a key contribution."
+    },
+    {
+      "claim": "Hinton was involved in the development of dropout regularization, AlexNet, the RMSProp optimization algorithm, and the t-SNE visualization method.",
+      "supported": true,
+      "supporting_evidence": [
+        18
+      ],
+      "confidence": 1.0,
+      "notes": "Hinton's contributions to these methods are well-documented."
+    },
+    {
+      "claim": "Hinton won the Turing Award in 2018 for his work on deep learning.",
+      "supported": true,
+      "supporting_evidence": [
+        15,
+        19,
+        24
+      ],
+      "confidence": 1.0,
+      "notes": "Consistent with other claims about the Turing Award."
+    },
+    {
+      "claim": "Hinton won the Nobel Prize in Physics in 2024 for his work on Boltzmann machines.",
+      "supported": true,
+      "supporting_evidence": [
+        5,
+        31,
+        23
+      ],
+      "confidence": 1.0,
+      "notes": "Multiple sources confirm the Nobel Prize award."
+    }
+  ],
+  "confidence": 1.0,
+  "report": "# Research Report: Geoffrey Hinton and His Major Contributions to AI\n\n## Introduction\n\nGeoffrey Hinton, often referred to as the \"Godfather of AI,\" is a prominent figure in the field of artificial intelligence, known for his foundational contributions to neural networks and deep learning [1][7][12][16]. Born on December 6, 1947, in London, England, Hinton has significantly influenced the development of AI technologies through his pioneering work on algorithms and neural network architectures [1][6][11]. This report delves into Hinton's educational background, his major contributions to AI, and his recognition in the field, including prestigious awards such as the Turing Award and the Nobel Prize in Physics.\n\n## Educational Background and Early Career\n\nGeoffrey Hinton received his Bachelor of Arts in Experimental Psychology from Cambridge University in 1970 [36]. He later pursued a Ph.D. in Artificial Intelligence at the University of Edinburgh, which he completed in 1978 [2][37]. Hinton's early academic career included a faculty position in the Computer Science Department at Carnegie Mellon University from 1982 to 1987, where he co-authored an influential paper on the backpropagation algorithm [32][33][38].\n\n## Major Contributions to AI\n\n### Backpropagation Algorithm\n\nOne of Hinton's most significant contributions to AI is the development and popularization of the backpropagation algorithm. In collaboration with David Rumelhart and Ronald J. Williams, Hinton introduced this algorithm in a seminal 1986 paper, which became a cornerstone for training multi-layer neural networks [3][13][17][25][27]. The backpropagation algorithm allows neural networks to adjust their weights iteratively to minimize prediction errors, thereby enabling more accurate data representations [28].\n\n### Neural Network Architectures\n\nHinton has been instrumental in advancing neural network architectures. In 2012, he co-developed AlexNet, an eight-layer neural network that significantly improved image recognition capabilities, winning the ImageNet challenge and halving error rates in object recognition [4][14][34]. Additionally, Hinton introduced Deep Belief Networks (DBNs) in 2006, further enhancing the capabilities of unsupervised learning [30].\n\n### Other Contributions\n\nHinton's contributions extend to the development of Boltzmann machines in the 1980s, which played a crucial role in unsupervised learning [29]. He was also involved in the creation of dropout regularization, the RMSProp optimization algorithm, and the t-SNE visualization method, all of which have become essential tools in deep learning [18].\n\n## Recognition and Awards\n\nGeoffrey Hinton's groundbreaking work has earned him numerous accolades. In 2018, he received the ACM A.M. Turing Award, often regarded as the \"Nobel Prize of Computing,\" alongside Yoshua Bengio and Yann LeCun for their work on deep learning [15][19][24][35]. In 2024, Hinton was awarded the Nobel Prize in Physics for his contributions to machine learning with artificial neural networks, sharing the honor with John J. Hopfield [5][20][23][31].\n\n## Recent Developments and Current Roles\n\nHinton served as a University Professor Emeritus at the University of Toronto and was a Chief Scientific Advisor Emeritus at the Vector Institute [8][21][22][39]. From 2013 to 2023, he worked with Google Brain, contributing to the advancement of AI technologies [9][40]. In May 2023, Hinton announced his departure from Google to focus on raising awareness about the risks associated with AI technologies [10].\n\n## Conclusion\n\nGeoffrey Hinton's contributions to artificial intelligence have been transformative, laying the groundwork for modern neural networks and deep learning. His work on the backpropagation algorithm and neural network architectures has revolutionized the field, earning him recognition as a leading figure in AI. As AI continues to evolve, Hinton's legacy endures through the foundational principles and technologies he helped establish.\n\n## Sources\n\n1. Geoffrey Hinton | Biography, Nobel Prize, Machine Learning, AI ...\n   URL: https://www.britannica.com/biography/Geoffrey-Hinton\n2. Geoffrey Hinton - Detailed Biography\n   URL: https://programming-ocean.com/cv/geoffrey-hinton.php\n3. Geoffrey Hinton - Wikipedia\n   URL: https://en.wikipedia.org/wiki/Geoffrey_Hinton\n4. Geoffrey Hinton on the Past, Present, and Future of AI - LessWrong\n   URL: https://www.lesswrong.com/posts/zJz8KXSRsproArXq5/geoffrey-hinton-on-the-past-present-and-future-of-ai\n5. Geoffrey Hinton - Vector Institute for Artificial Intelligence\n   URL: https://vectorinstitute.ai/team/geoffrey-hinton/\n6. Geoffrey Hinton's Landmark Contributions to Deep Learning - Medium\n   URL: https://medium.com/@frankmorales_91352/geoffrey-hintons-landmark-contributions-to-deep-learning-670e2f0020ff\n7. Former CSD Faculty Geoffrey Hinton Awarded 2024 Nobel Prize in ...\n   URL: https://www.csd.cs.cmu.edu/news/former-csd-faculty-geoffrey-hinton-awarded-2024-nobel-prize-in-physics\n8. Geoffrey E. Hinton - Research at Google\n   URL: https://research.google.com/pubs/GeoffreyHinton.html?source=post_page---------------------------",
+  "metadata": {
+    "iterations": 1,
+    "coverage": 0.8,
+    "confidence": 1.0,
+    "sources_count": 8,
+    "evidence_count": 40,
+    "mode": "single",
+    "wall_time_s": 135.23
+  }
+}

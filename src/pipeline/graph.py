@@ -119,7 +119,7 @@ def build_graph(checkpointer=None, interrupt_on_clarify: bool = True):
     or HITL support. For simple fire-and-forget runs, leave it as None.
     Set interrupt_on_clarify=False to skip the HITL pause entirely.
     """
-    g = StateGraph(ResearchState, config_schema=Configuration)
+    g = StateGraph(ResearchState, context_schema=Configuration)
 
     # -- Register all nodes --
     g.add_node("understand", understand_node)
