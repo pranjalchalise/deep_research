@@ -1,52 +1,6 @@
 """
-Deep Research Agent - Full-Featured General Research System
-
-A truly general research agent inspired by OpenAI, Anthropic, Google, and Perplexity.
-NO hardcoded query types. NO templates. Just pure LLM reasoning.
-
-Features:
-1. HUMAN-IN-THE-LOOP: Asks for clarification when query is ambiguous
-2. KNOWLEDGE GAP DETECTION: Iteratively fills gaps until comprehensive
-3. CITATION-GROUNDED: Every claim is backed by evidence with source citations
-
-Architecture (ReAct + Enhancements):
-┌─────────────────────────────────────────────────────────────────┐
-│  USER QUERY                                                      │
-│       ↓                                                          │
-│  ┌─────────────┐                                                 │
-│  │ UNDERSTAND  │ → Is this clear enough to research?             │
-│  └─────────────┘                                                 │
-│       ↓ No                    ↓ Yes                              │
-│  ┌─────────────┐         ┌─────────────┐                         │
-│  │ CLARIFY     │ ←HITL→  │ PLAN        │                         │
-│  │ (Ask User)  │         │ (Questions) │                         │
-│  └─────────────┘         └─────────────┘                         │
-│                               ↓                                  │
-│                    ┌──────────────────────┐                      │
-│                    │   RESEARCH LOOP      │                      │
-│                    │  ┌────────────────┐  │                      │
-│                    │  │ SEARCH & READ  │  │                      │
-│                    │  └────────────────┘  │                      │
-│                    │         ↓            │                      │
-│                    │  ┌────────────────┐  │                      │
-│                    │  │ EXTRACT FACTS  │  │                      │
-│                    │  └────────────────┘  │                      │
-│                    │         ↓            │                      │
-│                    │  ┌────────────────┐  │                      │
-│                    │  │ DETECT GAPS   │───┼──→ Loop if gaps      │
-│                    │  └────────────────┘  │                      │
-│                    └──────────────────────┘                      │
-│                               ↓                                  │
-│                    ┌──────────────────────┐                      │
-│                    │ VERIFY & CITE        │                      │
-│                    │ (Cross-reference)    │                      │
-│                    └──────────────────────┘                      │
-│                               ↓                                  │
-│                    ┌──────────────────────┐                      │
-│                    │ WRITE REPORT         │                      │
-│                    │ (Grounded in sources)│                      │
-│                    └──────────────────────┘                      │
-└─────────────────────────────────────────────────────────────────┘
+Deep Research Agent — a general-purpose research system with human-in-the-loop
+clarification, iterative gap detection, and citation-grounded reports.
 """
 from __future__ import annotations
 
@@ -63,10 +17,6 @@ from src.utils.json_utils import parse_json_object, parse_json_array
 from src.tools.tavily import cached_search
 from src.tools.http_fetch import fetch_and_chunk
 
-
-# =============================================================================
-# PROMPTS - General prompts that work for ANY query type
-# =============================================================================
 
 UNDERSTAND_PROMPT = """You are a research assistant. Analyze this query to determine if it is clear enough to research effectively.
 
@@ -259,10 +209,6 @@ Write in a professional, informative tone.
 """
 
 
-# =============================================================================
-# DATA STRUCTURES
-# =============================================================================
-
 @dataclass
 class Evidence:
     """A piece of evidence from a source."""
@@ -303,48 +249,30 @@ class VerifiedClaim:
 @dataclass
 class ResearchState:
     """Complete state of the research process."""
-    query: str                          # Original user query (never mutated)
-    user_clarification: str = ""        # User's clarification response (empty if query was clear)
-    clarified_query: str = ""           # Kept for backward compat in return dict
+    query: str
+    user_clarification: str = ""
+    clarified_query: str = ""
     research_questions: List[str] = field(default_factory=list)
     aspects_to_cover: List[str] = field(default_factory=list)
 
-    # Evidence and sources
     evidence: List[Evidence] = field(default_factory=list)
     sources: Dict[str, Source] = field(default_factory=dict)
 
-    # Tracking
     searches_done: List[str] = field(default_factory=list)
     iterations: int = 0
     max_iterations: int = 5
 
-    # Gap detection
     coverage: float = 0.0
     gaps: List[str] = field(default_factory=list)
 
-    # Verification
     verified_claims: List[VerifiedClaim] = field(default_factory=list)
 
-    # Output
     report: str = ""
     confidence: float = 0.0
 
 
-# =============================================================================
-# THE DEEP RESEARCH AGENT
-# =============================================================================
-
 class DeepResearchAgent:
-    """
-    A full-featured general research agent.
-
-    Features:
-    - Human-in-the-loop clarification for ambiguous queries
-    - Knowledge gap detection with iterative research
-    - Citation-grounded results with verification
-
-    No hardcoded query types. Works for ANY research question.
-    """
+    """General-purpose research agent with HITL clarification, gap detection, and citations."""
 
     def __init__(
         self,
@@ -356,19 +284,6 @@ class DeepResearchAgent:
         verbose: bool = True,
         clarification_callback: Optional[Callable[[str, List[str]], str]] = None,
     ):
-        """
-        Initialize the research agent.
-
-        Args:
-            model: Main model for complex reasoning
-            fast_model: Fast model for extraction tasks
-            max_iterations: Maximum research iterations
-            max_sources: Maximum sources to consult
-            min_coverage: Minimum coverage before writing (0-1)
-            verbose: Print progress to console
-            clarification_callback: Function to get user clarification
-                                   Called with (question, options) -> user_response
-        """
         self.llm = create_chat_model(model=model, temperature=0.2)
         self.fast_llm = create_chat_model(model=fast_model, temperature=0.1)
         self.max_iterations = max_iterations
@@ -406,7 +321,6 @@ class DeepResearchAgent:
 
         response = input("\nYour choice (number or text): ").strip()
 
-        # Check if user selected a number
         if response.isdigit():
             idx = int(response) - 1
             if 0 <= idx < len(options):
@@ -416,10 +330,6 @@ class DeepResearchAgent:
                 return opt
 
         return response
-
-    # =========================================================================
-    # PHASE 1: UNDERSTAND & CLARIFY
-    # =========================================================================
 
     def _understand_query(self, query: str) -> Dict[str, Any]:
         """Understand the query and check if clarification is needed."""
@@ -451,25 +361,16 @@ class DeepResearchAgent:
         question = understanding.get("clarification_question", "Could you please clarify your question?")
         options = understanding.get("clarification_options", [])
 
-        # Get user clarification
         user_response = self.clarification_callback(question, options)
 
         state.user_clarification = user_response
         self._log(f"User clarification: {user_response}", "CLARIFY")
-
-    # =========================================================================
-    # HELPERS
-    # =========================================================================
 
     def _clarification_section(self, state: ResearchState) -> str:
         """Build the clarification section for prompts. Empty string if no clarification."""
         if state.user_clarification:
             return f"\nUSER CLARIFICATION:\n{state.user_clarification}"
         return ""
-
-    # =========================================================================
-    # PHASE 2: PLAN
-    # =========================================================================
 
     def _create_plan(self, state: ResearchState) -> Dict[str, Any]:
         """Create a research plan with questions and initial searches."""
@@ -494,10 +395,6 @@ class DeepResearchAgent:
 
         return result
 
-    # =========================================================================
-    # PHASE 3: RESEARCH LOOP
-    # =========================================================================
-
     def _search_and_extract(self, state: ResearchState, queries: List[str]) -> List[Evidence]:
         """Execute searches and extract evidence."""
         new_evidence = []
@@ -509,7 +406,6 @@ class DeepResearchAgent:
             self._log(f"Searching: {query}", "SEARCH")
             state.searches_done.append(query)
 
-            # Search
             results = cached_search(
                 query=query,
                 max_results=5,
@@ -520,7 +416,6 @@ class DeepResearchAgent:
             if not results:
                 continue
 
-            # Process top results
             for result in results[:3]:
                 url = result["url"]
                 title = result["title"]
@@ -531,7 +426,6 @@ class DeepResearchAgent:
                 if len(state.sources) >= self.max_sources:
                     break
 
-                # Create source
                 source_id = len(state.sources) + 1
                 source = Source(
                     url=url,
@@ -540,7 +434,6 @@ class DeepResearchAgent:
                 )
                 state.sources[url] = source
 
-                # Fetch content
                 chunks = fetch_and_chunk(
                     url=url,
                     chunk_chars=4000,
@@ -553,7 +446,6 @@ class DeepResearchAgent:
                 if not chunks:
                     continue
 
-                # Extract evidence
                 evidence = self._extract_evidence(
                     state=state,
                     url=url,
@@ -574,7 +466,6 @@ class DeepResearchAgent:
         content: str
     ) -> List[Evidence]:
         """Extract evidence from content."""
-        # Build context from research questions
         context = f"Query: {state.query}\n"
         if state.user_clarification:
             context += f"User clarification: {state.user_clarification}\n"
@@ -613,13 +504,11 @@ class DeepResearchAgent:
         """Detect knowledge gaps and decide if more research is needed."""
         self._log("Detecting knowledge gaps...", "GAPS")
 
-        # Format evidence for analysis
         evidence_text = "\n".join([
             f"[{e.evidence_id}] {e.fact} (from: {e.source_title})"
             for e in state.evidence
         ])
 
-        # Format research questions
         questions_text = "\n".join([
             f"- {q}" for q in state.research_questions
         ])
@@ -650,10 +539,6 @@ class DeepResearchAgent:
 
         return result
 
-    # =========================================================================
-    # PHASE 4: VERIFY
-    # =========================================================================
-
     def _verify_evidence(self, state: ResearchState) -> List[VerifiedClaim]:
         """Verify that claims are supported by evidence."""
         self._log("Verifying evidence...", "VERIFY")
@@ -661,8 +546,7 @@ class DeepResearchAgent:
         if not state.evidence:
             return []
 
-        # Get key claims from evidence
-        claims = [e.fact for e in state.evidence[:20]]  # Top 20
+        claims = [e.fact for e in state.evidence[:20]]
         claims_text = "\n".join([f"- {c}" for c in claims])
 
         evidence_text = "\n".join([
@@ -696,10 +580,6 @@ class DeepResearchAgent:
 
         return verified
 
-    # =========================================================================
-    # PHASE 5: WRITE
-    # =========================================================================
-
     def _write_report(self, state: ResearchState) -> str:
         """Write the final research report with citations."""
         self._log("Writing report...", "WRITE")
@@ -715,13 +595,11 @@ Please try:
 - Checking if the topic has recent coverage
 """
 
-        # Format evidence with IDs
         evidence_text = "\n".join([
             f"[{e.evidence_id}] {e.fact}\n   Quote: \"{e.quote}\"\n   Source: {e.source_title}"
             for e in state.evidence
         ])
 
-        # Format sources
         sources_text = "\n".join([
             f"[{s.source_id}] {s.title}\n   URL: {s.url}\n   Evidence items: {s.evidence_count}"
             for s in state.sources.values()
@@ -739,7 +617,6 @@ Please try:
 
         report = response.content
 
-        # Ensure sources section exists
         if "## Sources" not in report and "## References" not in report:
             report += "\n\n---\n\n## Sources\n\n"
             for source in state.sources.values():
@@ -747,27 +624,8 @@ Please try:
 
         return report
 
-    # =========================================================================
-    # MAIN RESEARCH METHOD
-    # =========================================================================
-
     def research(self, query: str) -> Dict[str, Any]:
-        """
-        Conduct deep research on a query.
-
-        This is the main entry point. It orchestrates all phases:
-        1. Understand & clarify (HITL if needed)
-        2. Plan the research
-        3. Research loop (search, extract, detect gaps)
-        4. Verify evidence
-        5. Write report
-
-        Args:
-            query: Any research question
-
-        Returns:
-            Dict with report, sources, evidence, metadata
-        """
+        """Conduct deep research on a query, returning a dict with report, sources, evidence, and metadata."""
         state = ResearchState(
             query=query,
             max_iterations=self.max_iterations
@@ -777,44 +635,30 @@ Please try:
         self._log(f"DEEP RESEARCH: {query}", "")
         self._log(f"{'='*60}\n", "")
 
-        # -----------------------------------------------------------------
-        # PHASE 1: Understand & Clarify
-        # -----------------------------------------------------------------
         understanding = self._understand_query(query)
         self._clarify_if_needed(state, understanding)
-        # Keep clarified_query for backward compat in return dict
         if state.user_clarification:
             state.clarified_query = f"{state.query} - Clarification: {state.user_clarification}"
         else:
             state.clarified_query = state.query
 
-        # -----------------------------------------------------------------
-        # PHASE 2: Plan
-        # -----------------------------------------------------------------
         plan = self._create_plan(state)
         state.research_questions = plan.get("research_questions", [query])
         state.aspects_to_cover = plan.get("aspects_to_cover", [])
 
-        # Initial searches
         pending_searches = plan.get("initial_searches", [query])
 
-        # -----------------------------------------------------------------
-        # PHASE 3: Research Loop
-        # -----------------------------------------------------------------
         while state.iterations < state.max_iterations:
             state.iterations += 1
             self._log(f"\n--- Research Iteration {state.iterations} ---", "")
 
-            # Search and extract
             new_evidence = self._search_and_extract(state, pending_searches)
             state.evidence.extend(new_evidence)
 
             self._log(f"New evidence: {len(new_evidence)}, Total: {len(state.evidence)}", "PROGRESS")
 
-            # Detect gaps
             gap_result = self._detect_gaps(state)
 
-            # Check if ready to write
             if gap_result.get("ready_to_write", False):
                 self._log("Sufficient coverage achieved!", "GAPS")
                 break
@@ -823,7 +667,6 @@ Please try:
                 self._log(f"Coverage threshold met: {state.coverage:.0%}", "GAPS")
                 break
 
-            # Get next searches from gap analysis
             pending_searches = gap_result.get("suggested_searches", [])
 
             if not pending_searches:
@@ -832,26 +675,16 @@ Please try:
 
             self._log(f"Next searches: {pending_searches}", "GAPS")
 
-        # -----------------------------------------------------------------
-        # PHASE 4: Verify
-        # -----------------------------------------------------------------
         state.verified_claims = self._verify_evidence(state)
 
-        # Calculate confidence from verification
         if state.verified_claims:
             supported = sum(1 for v in state.verified_claims if v.supported)
             state.confidence = supported / len(state.verified_claims)
         else:
             state.confidence = state.coverage
 
-        # -----------------------------------------------------------------
-        # PHASE 5: Write
-        # -----------------------------------------------------------------
         state.report = self._write_report(state)
 
-        # -----------------------------------------------------------------
-        # Return results
-        # -----------------------------------------------------------------
         self._log(f"\n{'='*60}", "")
         self._log("RESEARCH COMPLETE", "")
         self._log(f"{'='*60}", "")
@@ -865,7 +698,7 @@ Please try:
             "report": state.report,
             "query": state.query,
             "user_clarification": state.user_clarification,
-            "clarified_query": state.clarified_query,  # backward compat
+            "clarified_query": state.clarified_query,
             "sources": {url: {
                 "title": s.title,
                 "url": s.url,
@@ -895,49 +728,18 @@ Please try:
         }
 
 
-# =============================================================================
-# CONVENIENCE FUNCTION
-# =============================================================================
-
 def deep_research(
     query: str,
     clarification_callback: Optional[Callable[[str, List[str]], str]] = None,
     **kwargs
 ) -> Dict[str, Any]:
-    """
-    Conduct deep research on any query.
-
-    Args:
-        query: Any research question
-        clarification_callback: Optional function for HITL clarification
-                               Called with (question, options) -> user_response
-        **kwargs: Additional arguments for DeepResearchAgent
-
-    Returns:
-        Dict with report, sources, evidence, metadata
-
-    Example:
-        # Basic usage (will ask for clarification via console if needed)
-        result = deep_research("What are the latest AI developments?")
-        print(result["report"])
-
-        # With custom clarification handler
-        def my_clarifier(question, options):
-            # Custom logic, e.g., GUI dialog
-            return options[0] if options else "default"
-
-        result = deep_research("Tell me about Python", clarification_callback=my_clarifier)
-    """
+    """Convenience wrapper: create a DeepResearchAgent and run research on the query."""
     agent = DeepResearchAgent(
         clarification_callback=clarification_callback,
         **kwargs
     )
     return agent.research(query)
 
-
-# =============================================================================
-# CLI
-# =============================================================================
 
 if __name__ == "__main__":
     import sys

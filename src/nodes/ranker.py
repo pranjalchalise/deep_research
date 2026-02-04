@@ -69,13 +69,11 @@ def _filter_sources_by_entity(
     result = parse_json_object(resp.content, default={})
     relevant_urls = set(result.get("relevant_urls", []))
 
-    # If LLM returned empty, fall back to all sources
     if not relevant_urls:
         return sources
 
     filtered = [s for s in sources if s.get("url") in relevant_urls]
 
-    # Log what was excluded
     excluded = result.get("excluded", [])
     if excluded:
         print(f"[ranker] filtered {len(excluded)} irrelevant sources")
@@ -84,12 +82,7 @@ def _filter_sources_by_entity(
 
 
 def ranker_node(state: AgentState) -> Dict[str, Any]:
-    """
-    Rank and filter sources after reducer.
-
-    For person queries, applies relevance filtering to remove
-    sources about different entities with similar names.
-    """
+    """Rank sources by quality score and filter irrelevant entities for person queries."""
     print("[ranker] === RANKER NODE CALLED ===")
 
     user_q = state["messages"][-1].content
@@ -102,7 +95,6 @@ def ranker_node(state: AgentState) -> Dict[str, Any]:
         print("[ranker] no sources, returning empty")
         return {}
 
-    # Get entity info for filtering
     discovery = state.get("discovery") or {}
     query_type = discovery.get("query_type", "general")
     primary_anchor = state.get("primary_anchor") or ""
@@ -112,7 +104,6 @@ def ranker_node(state: AgentState) -> Dict[str, Any]:
 
     llm = ChatOpenAI(model="gpt-4o-mini", temperature=0.0)
 
-    # Second-pass relevance filter for person queries
     if query_type == "person" and primary_anchor:
         print(f"[ranker] applying entity filter for '{primary_anchor}'")
         original_count = len(sources)
@@ -122,12 +113,10 @@ def ranker_node(state: AgentState) -> Dict[str, Any]:
         if filtered_count > 0:
             print(f"[ranker] filtered {filtered_count} irrelevant sources, {len(sources)} remaining")
 
-            # Also filter evidence to only keep evidence from remaining sources
             valid_sids = {s["sid"] for s in sources}
             evidence = [e for e in evidence if e.get("sid") in valid_sids]
             print(f"[ranker] evidence after filter: {len(evidence)}")
 
-    # Sort by quality score
     for s in sources:
         if "score" not in s:
             s["score"] = quality_score(
@@ -140,11 +129,9 @@ def ranker_node(state: AgentState) -> Dict[str, Any]:
 
     sources_sorted = sorted(sources, key=lambda x: float(x.get("score", 0.0)), reverse=True)
 
-    # Limit to top N
     top_n = state.get("rerank_top_n") or 15
     sources_final = sources_sorted[:top_n]
 
-    # Filter evidence to only keep evidence from final sources
     valid_sids = {s["sid"] for s in sources_final}
     evidence_final = [e for e in evidence if e.get("sid") in valid_sids]
 

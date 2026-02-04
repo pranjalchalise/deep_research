@@ -16,7 +16,6 @@ def reducer_node(state: AgentState) -> Dict[str, Any]:
     if done < total:
         return {}
 
-    # Final merge/normalize
     raw_sources = state.get("raw_sources") or []
     raw_evidence = state.get("raw_evidence") or []
 

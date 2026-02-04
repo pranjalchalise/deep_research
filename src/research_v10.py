@@ -1,0 +1,356 @@
+#!/usr/bin/env python3
+"""
+CLI for v10 research — the LangGraph StateGraph version of v9.
+
+Supports single-agent (iterative gap detection loop), multi-agent
+(parallel orchestrator-workers via Send()), HITL clarification via
+graph interrupt, and a --compare mode that runs both and prints a
+side-by-side metrics table.
+
+Usage:
+    python -m src.research_v10 "What is quantum computing?"
+    python -m src.research_v10 --single-agent "Compare React vs Vue"
+    python -m src.research_v10 --compare "Latest AI developments"
+    python -m src.research_v10 --simple "Tell me about Python"
+"""
+from __future__ import annotations
+
+import os
+import sys
+import time
+import uuid
+
+from dotenv import load_dotenv
+from langgraph.checkpoint.memory import MemorySaver
+
+from src.v10.graph import build_graph
+
+
+# ── Helpers ────────────────────────────────────────────────────────────
+
+def _base_input(mode: str = "single", max_iterations: int = 5) -> dict:
+    """Return the default state values every invocation needs."""
+    return {
+        "mode": mode,
+        "max_iterations": max_iterations,
+        "min_coverage": 0.7,
+        "iteration": 0,
+        "evidence": [],
+        "worker_results": [],
+        "done_workers": 0,
+        "searches_done": [],
+        "sources": {},
+    }
+
+
+def print_banner():
+    print("\n" + "=" * 60)
+    print("RESEARCH STUDIO v10  (LangGraph)")
+    print("=" * 60)
+
+
+def print_metrics(result: dict, elapsed: float, label: str = ""):
+    meta = result.get("metadata", {})
+    heading = f"METRICS ({label})" if label else "METRICS"
+    print("\n" + "-" * 60)
+    print(heading)
+    print("-" * 60)
+    print(f"  Mode:        {meta.get('mode', '?')}")
+    print(f"  Sources:     {meta.get('sources_count', 0)}")
+    print(f"  Evidence:    {meta.get('evidence_count', 0)}")
+    print(f"  Iterations:  {meta.get('iterations', 0)}")
+    print(f"  Coverage:    {meta.get('coverage', 0):.0%}")
+    print(f"  Confidence:  {meta.get('confidence', 0):.0%}")
+    print(f"  Time:        {elapsed:.1f}s")
+
+
+def print_comparison(single_result: dict, single_time: float,
+                     multi_result: dict, multi_time: float):
+    s = single_result.get("metadata", {})
+    m = multi_result.get("metadata", {})
+
+    print("\n" + "=" * 60)
+    print("COMPARISON: Single-Agent vs Multi-Agent")
+    print("=" * 60)
+    print(f"{'Metric':<25} {'Single':<15} {'Multi':<15} {'Winner':<10}")
+    print("-" * 65)
+
+    rows = [
+        ("Time (s)", single_time, multi_time, "lower"),
+        ("Sources", s.get("sources_count", 0), m.get("sources_count", 0), "higher"),
+        ("Evidence", s.get("evidence_count", 0), m.get("evidence_count", 0), "higher"),
+        ("Confidence", s.get("confidence", 0), m.get("confidence", 0), "higher"),
+        ("Coverage", s.get("coverage", 0), m.get("coverage", 0), "higher"),
+        ("Iterations", s.get("iterations", 0), m.get("iterations", 0), "info"),
+    ]
+
+    for label, sv, mv, direction in rows:
+        if direction == "lower":
+            winner = "Multi" if mv < sv else ("Single" if sv < mv else "Tie")
+        elif direction == "higher":
+            winner = "Multi" if mv > sv else ("Single" if sv > mv else "Tie")
+        else:
+            winner = ""
+
+        if isinstance(sv, float) and sv <= 1.0 and label not in ("Time (s)",):
+            print(f"  {label:<23} {sv:<15.0%} {mv:<15.0%} {winner:<10}")
+        else:
+            sv_fmt = f"{sv:.1f}" if isinstance(sv, float) else str(sv)
+            mv_fmt = f"{mv:.1f}" if isinstance(mv, float) else str(mv)
+            print(f"  {label:<23} {sv_fmt:<15} {mv_fmt:<15} {winner:<10}")
+
+    print("-" * 65)
+    if multi_time < single_time:
+        diff = single_time - multi_time
+        pct = (diff / single_time) * 100
+        print(f"\nMulti-agent was {diff:.1f}s faster ({pct:.0f}% improvement)")
+    elif single_time < multi_time:
+        diff = multi_time - single_time
+        print(f"\nSingle-agent was {diff:.1f}s faster (multi-agent overhead)")
+    else:
+        print("\nBoth modes took the same time.")
+
+
+# ── Run functions ──────────────────────────────────────────────────────
+
+def run_v10(
+    question: str,
+    mode: str = "multi",
+    skip_clarification: bool = False,
+    max_iterations: int = 5,
+    verbose: bool = True,
+    output_file: str | None = None,
+) -> tuple[dict, float]:
+    """Run the v10 graph and return (final_state, elapsed_seconds)."""
+    start = time.time()
+
+    init = {"query": question, **_base_input(mode=mode, max_iterations=max_iterations)}
+
+    if skip_clarification:
+        # Fire-and-forget: no checkpointer, no interrupt
+        graph = build_graph(checkpointer=None, interrupt_on_clarify=False)
+        if verbose:
+            print(f"\n[1/5] Analyzing query...")
+        result = graph.invoke(init)
+    else:
+        # HITL: checkpointer + interrupt before clarify
+        checkpointer = MemorySaver()
+        graph = build_graph(checkpointer=checkpointer, interrupt_on_clarify=True)
+        thread_id = str(uuid.uuid4())
+        config = {"configurable": {"thread_id": thread_id}}
+
+        if verbose:
+            print(f"\n[1/5] Analyzing query...")
+
+        result = graph.invoke(init, config)
+
+        # Check if the graph paused at clarify
+        snapshot = graph.get_state(config)
+        if snapshot.next and "clarify" in snapshot.next:
+            clarification_q = result.get("clarification_question", "")
+            options = result.get("clarification_options", [])
+
+            if verbose:
+                print("\n" + "-" * 60)
+                print("CLARIFICATION NEEDED")
+                print("-" * 60)
+                if clarification_q:
+                    print(f"\n{clarification_q}\n")
+                if options:
+                    print("Options:")
+                    for i, opt in enumerate(options, 1):
+                        if isinstance(opt, dict):
+                            label = opt.get("label", str(opt))
+                            desc = opt.get("description", "")
+                            print(f"  {i}. {label}")
+                            if desc:
+                                print(f"     {desc}")
+                        else:
+                            print(f"  {i}. {opt}")
+                    print(f"  {len(options) + 1}. Other (type your own)")
+                print("-" * 60)
+
+            user_input = input("\nYour choice (number or text): ").strip()
+
+            # Resolve numbered choice
+            if user_input.isdigit() and options:
+                idx = int(user_input) - 1
+                if 0 <= idx < len(options):
+                    opt = options[idx]
+                    user_input = opt.get("label", str(opt)) if isinstance(opt, dict) else str(opt)
+
+            if verbose:
+                print(f"\n[2/5] Processing clarification: {user_input}")
+
+            graph.update_state(config, {"user_clarification": user_input})
+            result = graph.invoke(None, config)
+        else:
+            if verbose:
+                print("[2/5] Query is clear, skipping clarification...")
+
+    elapsed = time.time() - start
+
+    if verbose:
+        step = 3
+        print(f"[{step}/5] Research complete.")
+        step += 1
+        print(f"[{step}/5] Verification done.")
+        step += 1
+        print(f"[{step}/5] Report generated.\n")
+
+        print("=" * 60)
+        print("RESEARCH REPORT")
+        print("=" * 60)
+        print(result.get("report", "(no report generated)"))
+        print_metrics(result, elapsed, label=mode.title())
+
+    if output_file:
+        report = result.get("report", "")
+        with open(output_file, "w") as f:
+            f.write(report)
+        if verbose:
+            print(f"\nSaved to: {output_file}")
+
+    return result, elapsed
+
+
+# ── CLI ────────────────────────────────────────────────────────────────
+
+def print_help():
+    print("""
+Research Studio v10 - LangGraph Research Agent
+
+Usage:
+    python -m src.research_v10 [OPTIONS] [QUESTION]
+
+Modes:
+    (default)         Multi-agent orchestrator-workers (parallel via Send)
+    --single-agent    Single-agent with iterative gap detection
+    --compare         Run BOTH and compare metrics side-by-side
+
+Options:
+    --simple, -s      Skip human clarification (auto-proceed)
+    --quiet, -q       Minimal output
+    --output FILE     Save report to file
+    -o FILE           Save report to file
+    --iterations N    Max research iterations (default: 5 single, 2 multi)
+    --help, -h        Show this help message
+
+Examples:
+    python -m src.research_v10 "What is quantum computing?"
+    python -m src.research_v10 --single-agent "Compare React vs Vue"
+    python -m src.research_v10 --compare "Latest AI developments"
+    python -m src.research_v10 --simple "Tell me about Python"
+    python -m src.research_v10 --simple --single-agent --iterations 3 "Quantum computing"
+""")
+
+
+def main():
+    load_dotenv()
+
+    if not os.getenv("OPENAI_API_KEY"):
+        print("Error: OPENAI_API_KEY not set. Add it to your .env file.")
+        sys.exit(1)
+
+    args = sys.argv[1:]
+    skip_clarification = False
+    verbose = True
+    output_file = None
+    mode = "multi"
+    max_iterations = None  # will default based on mode
+
+    if "--help" in args or "-h" in args:
+        print_help()
+        return
+
+    if "--single-agent" in args:
+        args.remove("--single-agent")
+        mode = "single"
+
+    if "--compare" in args:
+        args.remove("--compare")
+        mode = "compare"
+
+    if "--simple" in args:
+        args.remove("--simple")
+        skip_clarification = True
+
+    if "-s" in args:
+        args.remove("-s")
+        skip_clarification = True
+
+    if "--quiet" in args:
+        args.remove("--quiet")
+        verbose = False
+
+    if "-q" in args:
+        args.remove("-q")
+        verbose = False
+
+    if "--iterations" in args:
+        idx = args.index("--iterations")
+        if idx + 1 < len(args):
+            max_iterations = int(args[idx + 1])
+            args.pop(idx)
+            args.pop(idx)
+
+    if "--output" in args:
+        idx = args.index("--output")
+        if idx + 1 < len(args):
+            output_file = args[idx + 1]
+            args.pop(idx)
+            args.pop(idx)
+
+    if "-o" in args:
+        idx = args.index("-o")
+        if idx + 1 < len(args):
+            output_file = args[idx + 1]
+            args.pop(idx)
+            args.pop(idx)
+
+    if args:
+        question = " ".join(args)
+    else:
+        print_banner()
+        question = input("\nEnter your research question: ").strip()
+
+    if not question:
+        print("Error: No question provided.")
+        sys.exit(1)
+
+    if verbose:
+        print_banner()
+        print(f"\nQuery: {question}")
+        print(f"Mode: {mode.upper()}")
+        print("-" * 60)
+
+    if mode == "compare":
+        single_iters = max_iterations or 5
+        multi_iters = max_iterations or 2
+
+        print("\n>>> Running SINGLE-AGENT first...")
+        print("-" * 60)
+        single_result, single_time = run_v10(
+            question, mode="single", skip_clarification=True,
+            max_iterations=single_iters, verbose=verbose,
+        )
+
+        print("\n\n>>> Running MULTI-AGENT now...")
+        print("-" * 60)
+        multi_result, multi_time = run_v10(
+            question, mode="multi", skip_clarification=True,
+            max_iterations=multi_iters, verbose=verbose,
+        )
+
+        print_comparison(single_result, single_time, multi_result, multi_time)
+
+    else:
+        iters = max_iterations or (5 if mode == "single" else 2)
+        run_v10(
+            question, mode=mode, skip_clarification=skip_clarification,
+            max_iterations=iters, verbose=verbose, output_file=output_file,
+        )
+
+
+if __name__ == "__main__":
+    main()

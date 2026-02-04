@@ -1,4 +1,8 @@
-# src/nodes/search_worker.py
+"""
+Searches the web for a single plan query, fetches full page content, and extracts
+evidence. Filters results by entity relevance for person queries to avoid mixing
+up people with similar names.
+"""
 from __future__ import annotations
 
 import re
@@ -76,16 +80,13 @@ def _filter_relevant_results(
 ) -> List[Dict[str, str]]:
     """
     Filter search results to only include those actually about the target entity.
-
-    This prevents using results about different entities with similar names.
+    Prevents mixing up people with similar names.
     """
     if not results or not primary_anchor:
         return results
 
-    # Build context string
     context_str = ", ".join(context_terms) if context_terms else "no additional context"
 
-    # Format results for LLM
     results_text = "\n".join([
         f"[{i}] {r['title']}\n    Snippet: {r.get('snippet', '')[:300]}"
         for i, r in enumerate(results)
@@ -107,28 +108,24 @@ Which results are actually about the TARGET entity (not a different person/place
     analysis = parse_json_object(resp.content, default={})
     relevant_indices = analysis.get("relevant_indices", [])
 
-    # Filter results
     filtered = []
     for i in relevant_indices:
         if isinstance(i, int) and 0 <= i < len(results):
             filtered.append(results[i])
 
-    # If LLM filtered everything, do a simple keyword check as fallback
+    # Fallback: if LLM filtered everything, do keyword matching instead
     if not filtered and results:
-        # Check if primary anchor appears in title or snippet
         primary_lower = primary_anchor.lower()
         for r in results:
             title_lower = r.get("title", "").lower()
             snippet_lower = r.get("snippet", "").lower()
             combined = title_lower + " " + snippet_lower
 
-            # Require EXACT primary anchor to appear (not partial match)
-            # Split name into parts and check all parts appear
+            # All name parts must appear (not partial match)
             name_parts = primary_lower.split()
             all_parts_present = all(part in combined for part in name_parts if len(part) > 1)
 
             if all_parts_present:
-                # Also check for at least one context term
                 has_context = not context_terms or any(
                     ctx.lower() in combined for ctx in context_terms
                 )
@@ -167,7 +164,6 @@ def _extract_evidence_from_chunks(
     if not chunks:
         return []
 
-    # Combine chunks (limit total size)
     combined = "\n\n---\n\n".join(chunks[:3])
     if len(combined) > 8000:
         combined = combined[:8000] + "..."
@@ -240,15 +236,7 @@ def _extract_evidence_from_snippets(
 
 
 def worker_node(state: AgentState) -> Dict[str, Any]:
-    """
-    Search worker that:
-    1. Searches via Tavily (with caching)
-    2. FILTERS results to only include those about the target entity
-    3. Fetches full page content for relevant results
-    4. Extracts evidence from full content (or snippets as fallback)
-
-    Invoked via Send with injected `query_item`.
-    """
+    """Execute a single search query: search, filter by entity relevance, fetch pages, extract evidence."""
     qi: PlanQuery = state["query_item"]
     max_results = state.get("tavily_max_results") or state.get("max_results") or 6
 
@@ -256,15 +244,12 @@ def worker_node(state: AgentState) -> Dict[str, Any]:
     section = (qi.get("section") or "General").strip()
     lane = (qi.get("lane") or "general").strip()
 
-    # Get primary anchor and context for relevance filtering
     primary_anchor = state.get("primary_anchor") or ""
     anchor_terms = state.get("anchor_terms") or []
 
-    # Get query type from discovery - only apply relevance filtering for person queries
     discovery = state.get("discovery") or {}
     query_type = discovery.get("query_type", "general")
 
-    # Config from state
     use_cache = state.get("use_cache", True)
     cache_dir = state.get("cache_dir")
     timeout_s = state.get("request_timeout_s", 12.0)
@@ -274,10 +259,8 @@ def worker_node(state: AgentState) -> Dict[str, Any]:
     evidence_per_source = state.get("evidence_per_source", 3)
     fast_mode = state.get("fast_mode", True)
 
-    # In fast mode, fetch fewer pages
     pages_to_fetch = 2 if fast_mode else 4
 
-    # ---- Search with retries (using cache) ----
     results: List[Dict[str, str]] = []
     tried: List[str] = []
 
@@ -290,36 +273,28 @@ def worker_node(state: AgentState) -> Dict[str, Any]:
             cache_dir=f"{cache_dir}/search" if cache_dir else None,
         )
 
-    # try 1: original query with lane filtering
     tried.append(f"{q} [lane={lane}]")
     results = run_search(q, lane)
 
-    # try 2: same query but fall back to general (no domain filter)
     if not results and lane != "general":
         tried.append(f"{q} [lane=general]")
         results = run_search(q, "general")
 
-    # try 3: remove site: operators and search general
     if not results:
         q2 = _strip_site(q)
         if q2 and q2 != q:
             tried.append(f"{q2} [lane=general]")
             results = run_search(q2, "general")
 
-    # try 4: broaden for people queries
     if not results:
         q3 = f"{q} profile biography research publications"
         tried.append(f"{q3} [lane=general]")
         results = run_search(q3, "general")
 
-    # If no results, return empty
     if not results:
         print(f"[worker] no results for query='{q}' tried={tried}")
         return {"raw_sources": [], "raw_evidence": [], "done_workers": 1}
 
-    # ---- RELEVANCE FILTERING ----
-    # Filter out results that are about different entities with similar names
-    # ONLY apply for person queries - concept/technical queries don't need this
     llm = create_chat_model(model="gpt-4o-mini", temperature=0.1)
 
     if primary_anchor and query_type == "person":
@@ -334,26 +309,21 @@ def worker_node(state: AgentState) -> Dict[str, Any]:
             print(f"[worker] no RELEVANT results for query='{q}' (all {original_count} were about different entities)")
             return {"raw_sources": [], "raw_evidence": [], "done_workers": 1}
 
-    # Build raw sources from FILTERED results only
     raw_sources: List[RawSource] = [
         {"url": r["url"], "title": r["title"], "snippet": (r.get("snippet") or "")[:700]}
         for r in results
     ]
 
-    # ---- Fetch full pages and extract evidence ----
     all_evidence: List[RawEvidence] = []
     fetched_count = 0
 
-    # Try to fetch top pages
     for r in results[:pages_to_fetch]:
         url = r["url"]
         title = r["title"]
 
-        # Skip unfetchable URLs
         if should_skip_url(url):
             continue
 
-        # Fetch and chunk the page
         chunks = fetch_and_chunk(
             url=url,
             chunk_chars=chunk_chars,
@@ -366,7 +336,6 @@ def worker_node(state: AgentState) -> Dict[str, Any]:
 
         if chunks:
             fetched_count += 1
-            # Extract evidence from full content
             ev = _extract_evidence_from_chunks(
                 llm=llm,
                 url=url,
@@ -378,12 +347,10 @@ def worker_node(state: AgentState) -> Dict[str, Any]:
             )
             all_evidence.extend(ev)
 
-    # If we couldn't fetch any pages, fall back to snippet-based extraction
     if fetched_count == 0 and results:
         print(f"[worker] fetch failed for all URLs, falling back to snippets for query='{q}'")
         all_evidence = _extract_evidence_from_snippets(llm, results, q, section)
 
-    # Final fallback if LLM extraction failed
     if not all_evidence and results:
         all_evidence = _fallback_evidence(results, section)
 

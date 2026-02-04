@@ -1,4 +1,9 @@
-# src/tools/tavily.py
+"""
+Tavily search integration with lane-based filtering and caching.
+
+Different "lanes" (docs, papers, news, forums, code) restrict searches to
+relevant domains, so the planner can target the right kind of source.
+"""
 from __future__ import annotations
 
 from typing import Any, Dict, List, Optional
@@ -8,9 +13,6 @@ from langchain_tavily import TavilySearch
 from src.utils.cache import get_search_cache, make_search_key
 
 
-# Lane -> (topic, include_domains)
-# topic can be "general" or "news" (Tavily native)
-# include_domains filters to specific sites
 LANE_CONFIG: Dict[str, Dict[str, Any]] = {
     "docs": {
         "topic": "general",
@@ -48,8 +50,8 @@ LANE_CONFIG: Dict[str, Dict[str, Any]] = {
         ],
     },
     "news": {
-        "topic": "news",  # Tavily has native news topic
-        "include_domains": [],  # let Tavily handle news sources
+        "topic": "news",
+        "include_domains": [],
     },
     "forums": {
         "topic": "general",
@@ -76,7 +78,7 @@ LANE_CONFIG: Dict[str, Dict[str, Any]] = {
     },
     "general": {
         "topic": "general",
-        "include_domains": [],  # no filtering
+        "include_domains": [],
     },
 }
 
@@ -85,11 +87,7 @@ def make_search(
     max_results: int = 5,
     lane: Optional[str] = None,
 ) -> TavilySearch:
-    """
-    Create a TavilySearch configured for the given lane.
-
-    Lanes: docs, papers, news, forums, code, general (default)
-    """
+    """Create a TavilySearch tool configured for the given lane."""
     config = LANE_CONFIG.get(lane or "general", LANE_CONFIG["general"])
     topic = config.get("topic", "general")
     include_domains = config.get("include_domains", [])
@@ -102,9 +100,7 @@ def make_search(
     if include_domains:
         kwargs["include_domains"] = include_domains
 
-    # search_depth="advanced" helps a lot for people queries.
-    # Some versions of langchain_tavily support this kwarg; if yours doesn't,
-    # just remove search_depth and it'll still work.
+    # "advanced" depth gives richer snippets, but not all langchain_tavily versions support it
     try:
         return TavilySearch(**kwargs, search_depth="advanced")
     except TypeError:
@@ -112,10 +108,7 @@ def make_search(
 
 
 def normalize(raw: Any) -> List[Dict[str, str]]:
-    """
-    Normalize Tavily output to:
-    [{"url":..., "title":..., "snippet":...}, ...]
-    """
+    """Flatten Tavily's variable output shapes into a consistent list of {url, title, snippet} dicts."""
     results = []
     if isinstance(raw, dict):
         results = raw.get("results", []) or []
@@ -144,35 +137,20 @@ def cached_search(
     use_cache: bool = True,
     cache_dir: Optional[str] = None,
 ) -> List[Dict[str, str]]:
-    """
-    Execute a search with caching support.
-
-    Args:
-        query: Search query
-        max_results: Maximum results to return
-        lane: Search lane (docs, papers, news, forums, code, general)
-        use_cache: Whether to use cache (default True)
-        cache_dir: Custom cache directory (default: .cache_v7/search)
-
-    Returns:
-        Normalized list of search results
-    """
+    """Run a Tavily search, returning cached results when available to avoid redundant API calls."""
     lane = lane or "general"
     cache_key = make_search_key(query, lane, max_results)
 
-    # Try cache first
     if use_cache:
         cache = get_search_cache(cache_dir) if cache_dir else get_search_cache()
         cached = cache.get(cache_key)
         if cached is not None:
             return cached
 
-    # Execute search
     search = make_search(max_results=max_results, lane=lane)
     raw = search.invoke({"query": query})
     results = normalize(raw)
 
-    # Cache results
     if use_cache:
         cache = get_search_cache(cache_dir) if cache_dir else get_search_cache()
         cache.set(cache_key, results)

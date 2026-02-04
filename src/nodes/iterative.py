@@ -1,12 +1,6 @@
-# src/nodes/iterative.py
 """
-Iterative research nodes for v8.
-
-Implements:
-- confidence_check_node: Decide if we need more discovery
-- auto_refine_node: Automatically refine discovery without human input
-- gap_detector_node: Identify knowledge gaps after research
-- backtrack_handler_node: Handle failed searches and pivot to alternatives
+Iterative research loop: confidence checking, automatic refinement,
+gap detection, backtracking on dead ends, and early termination.
 """
 from __future__ import annotations
 
@@ -29,10 +23,6 @@ from src.utils.llm import create_chat_model
 from src.utils.optimization import should_terminate_early, CostTracker
 
 
-# ============================================================================
-# CONFIDENCE CHECK NODE
-# ============================================================================
-
 def confidence_check_node(state: AgentState) -> Dict[str, Any]:
     """
     After discovery, assess if confidence is sufficient.
@@ -48,15 +38,12 @@ def confidence_check_node(state: AgentState) -> Dict[str, Any]:
     query_type = discovery.get("query_type", "general")
     needs_clarification = discovery.get("needs_clarification", False)
 
-    # Concept/technical queries rarely need refinement
     if query_type in ("concept", "technical", "comparison"):
         return {"_route": "planner"}
 
-    # High confidence - proceed
     if confidence >= 0.85:
         return {"_route": "planner"}
 
-    # Multiple candidates with similar confidence - need disambiguation
     if len(candidates) > 1:
         sorted_candidates = sorted(
             candidates,
@@ -67,10 +54,8 @@ def confidence_check_node(state: AgentState) -> Dict[str, Any]:
             top_two = sorted_candidates[:2]
             confidence_gap = top_two[0].get("confidence", 0) - top_two[1].get("confidence", 0)
             if confidence_gap < 0.2:
-                # Ambiguous - need clarification
                 return {"_route": "clarify"}
 
-    # Low confidence but single candidate - try auto-refine
     if confidence < 0.7:
         if len(candidates) == 1:
             refinement_queries = _generate_refinement_queries(candidates[0], state)
@@ -79,7 +64,6 @@ def confidence_check_node(state: AgentState) -> Dict[str, Any]:
                 "refinement_queries": refinement_queries,
             }
         elif len(candidates) == 0:
-            # No candidates found - try broader search
             original_query = state.get("original_query", "")
             refinement_queries = [
                 {"query": f"{original_query} profile", "purpose": "broaden"},
@@ -90,7 +74,6 @@ def confidence_check_node(state: AgentState) -> Dict[str, Any]:
                 "refinement_queries": refinement_queries,
             }
 
-    # Medium confidence or explicit clarification needed
     if needs_clarification:
         return {"_route": "clarify"}
 
@@ -104,19 +87,16 @@ def _generate_refinement_queries(candidate: Dict, state: AgentState) -> List[Dic
 
     queries = []
 
-    # LinkedIn profile search
     queries.append({
         "query": f'"{name}" LinkedIn profile',
         "purpose": "identity_verification",
     })
 
-    # Official profile search
     queries.append({
         "query": f'"{name}" site:linkedin.com OR site:github.com',
         "purpose": "official_profile",
     })
 
-    # With context
     if identifiers:
         queries.append({
             "query": f'"{name}" {identifiers[0]} biography',
@@ -130,10 +110,6 @@ def route_after_confidence(state: AgentState) -> str:
     """Route based on _route field set by confidence_check_node."""
     return state.get("_route", "planner")
 
-
-# ============================================================================
-# AUTO REFINE NODE
-# ============================================================================
 
 AUTO_REFINE_SYSTEM = """You analyze additional search results to refine entity identification.
 
@@ -169,17 +145,14 @@ def auto_refine_node(state: AgentState) -> Dict[str, Any]:
     candidates = discovery.get("entity_candidates", [])
     refinement_queries = state.get("refinement_queries", [])
 
-    # Get best candidate
     if candidates:
         candidate = max(candidates, key=lambda c: c.get("confidence", 0))
     else:
         candidate = {"name": "", "identifiers": [], "confidence": 0}
 
-    # Config
     use_cache = state.get("use_cache", True)
     cache_dir = state.get("cache_dir")
 
-    # Execute refinement searches
     all_results = []
     for q in refinement_queries:
         query = q.get("query", "")
@@ -196,13 +169,11 @@ def auto_refine_node(state: AgentState) -> Dict[str, Any]:
         all_results.extend(results)
 
     if not all_results:
-        # No new results - proceed with current confidence
         return {
             "_route": "planner",
             "discovery": discovery,
         }
 
-    # Analyze new results
     llm = create_chat_model(model="gpt-4o-mini", temperature=0.1)
 
     results_text = "\n\n".join([
@@ -226,7 +197,6 @@ Analyze whether these results confirm or refute the candidate identity."""),
 
     analysis = parse_json_object(resp.content, default={})
 
-    # Update candidate with new information
     new_confidence = float(analysis.get("updated_confidence", candidate.get("confidence", 0.5)))
     new_identifiers = list(candidate.get("identifiers", []))
 
@@ -240,7 +210,6 @@ Analyze whether these results confirm or refute the candidate identity."""),
         "confidence": new_confidence,
     }
 
-    # Update discovery
     updated_discovery = {
         **discovery,
         "confidence": new_confidence,
@@ -248,7 +217,6 @@ Analyze whether these results confirm or refute the candidate identity."""),
         "needs_clarification": new_confidence < 0.7,
     }
 
-    # Decide next step
     if new_confidence >= 0.7:
         return {
             "_route": "planner",
@@ -258,16 +226,11 @@ Analyze whether these results confirm or refute the candidate identity."""),
             "anchor_terms": new_identifiers,
         }
     else:
-        # Still low confidence - go to clarify
         return {
             "_route": "clarify",
             "discovery": updated_discovery,
         }
 
-
-# ============================================================================
-# GAP DETECTOR NODE
-# ============================================================================
 
 GAP_DETECTOR_SYSTEM = """Analyze research findings and identify knowledge gaps.
 
@@ -326,20 +289,17 @@ def gap_detector_node(state: AgentState) -> Dict[str, Any]:
     current_iteration = state.get("research_iteration", 0)
     max_iterations = state.get("max_research_iterations", 3)
 
-    # Group evidence by section
     section_evidence: Dict[str, List] = defaultdict(list)
     for e in evidence:
         section = e.get("section", "General")
         section_evidence[section].append(e)
 
-    # Calculate basic section confidence
     section_confidence = {}
     for section in outline:
         ev_count = len(section_evidence.get(section, []))
         # Heuristic: 3+ evidence items = high confidence
         section_confidence[section] = min(1.0, ev_count / 3.0)
 
-    # Quick check - if all sections have sufficient evidence, proceed
     min_section_conf = min(section_confidence.values()) if section_confidence else 0
     avg_section_conf = sum(section_confidence.values()) / len(section_confidence) if section_confidence else 0
 
@@ -352,10 +312,8 @@ def gap_detector_node(state: AgentState) -> Dict[str, Any]:
             "research_iteration": current_iteration,
         }
 
-    # LLM analysis for detailed gap detection
     llm = create_chat_model(model="gpt-4o-mini", temperature=0.1)
 
-    # Format evidence for analysis
     evidence_summary = []
     for section in outline:
         section_ev = section_evidence.get(section, [])
@@ -385,7 +343,6 @@ Analyze gaps and recommend whether to continue researching or proceed to synthes
     overall_confidence = float(analysis.get("overall_confidence", avg_section_conf))
     recommendation = analysis.get("recommendation", "continue")
 
-    # Parse gaps
     gaps: List[KnowledgeGap] = []
     for gap in analysis.get("gaps", []):
         if isinstance(gap, dict):
@@ -397,7 +354,6 @@ Analyze gaps and recommend whether to continue researching or proceed to synthes
                 "current_confidence": section_confidence.get(gap.get("section", ""), 0),
             })
 
-    # Decision logic
     should_continue = (
         recommendation == "continue" and
         current_iteration < max_iterations and
@@ -406,12 +362,10 @@ Analyze gaps and recommend whether to continue researching or proceed to synthes
     )
 
     if should_continue:
-        # Generate refinement queries from gaps
         refinement_queries = []
         for gap in sorted(gaps, key=lambda g: g.get("priority", 0), reverse=True)[:3]:
             for query in gap.get("suggested_queries", [])[:2]:
                 primary_anchor = state.get("primary_anchor", "")
-                # Ensure primary anchor is in query
                 if primary_anchor and primary_anchor.lower() not in query.lower():
                     query = f'"{primary_anchor}" {query}'
                 refinement_queries.append({
@@ -443,7 +397,6 @@ def route_after_gaps(state: AgentState) -> str:
     proceed = state.get("proceed_to_synthesis", False)
     dead_ends = state.get("dead_ends") or []
 
-    # Check if we have unhandled dead ends
     unhandled_dead_ends = [d for d in dead_ends if not d.get("alternative_tried", False)]
 
     if unhandled_dead_ends and state.get("enable_backtracking", True):
@@ -454,10 +407,6 @@ def route_after_gaps(state: AgentState) -> str:
     else:
         return "orchestrator"
 
-
-# ============================================================================
-# BACKTRACK HANDLER NODE
-# ============================================================================
 
 def backtrack_handler_node(state: AgentState) -> Dict[str, Any]:
     """
@@ -478,7 +427,6 @@ def backtrack_handler_node(state: AgentState) -> Dict[str, Any]:
     if not dead_ends:
         return {}
 
-    # Find unhandled dead ends
     unhandled = [d for d in dead_ends if not d.get("alternative_tried", False)]
 
     if not unhandled:
@@ -535,15 +483,12 @@ def backtrack_handler_node(state: AgentState) -> Dict[str, Any]:
                 f'"{primary_anchor}" {failed_query.replace(primary_anchor, "").strip()}',
             ]
 
-        # Filter empty alternatives
         alternatives = [a.strip() for a in alternatives if a.strip()]
         alternative_queries.extend(alternatives[:2])
 
-        # Mark dead end as handled
         idx = dead_ends.index(dead_end)
         updated_dead_ends[idx] = {**dead_end, "alternative_tried": True}
 
-    # Add to trajectory
     trajectory_step: TrajectoryStep = {
         "iteration": current_iteration,
         "action": "backtrack",
@@ -563,24 +508,8 @@ def backtrack_handler_node(state: AgentState) -> Dict[str, Any]:
     }
 
 
-# ============================================================================
-# COMPLEXITY ROUTER NODE
-# ============================================================================
-
 def complexity_router_node(state: AgentState) -> Dict[str, Any]:
-    """
-    Analyze query complexity and set routing path.
-
-    Complexity levels:
-    - simple: Direct answer queries ("what is X", "who is Y")
-      → Skip multi-agent, use minimal research path
-    - medium: Standard queries needing some research
-      → Use reduced subagents (2-3), single iteration
-    - complex: Deep research queries ("analyze", "compare", "investigate")
-      → Full multi-agent orchestration
-
-    This optimization reduces costs for simple queries by ~60%.
-    """
+    """Set routing parameters based on query complexity (simple/medium/complex)."""
     cfg = V8Config()
     original_query = state.get("original_query", "")
 
@@ -589,7 +518,6 @@ def complexity_router_node(state: AgentState) -> Dict[str, Any]:
 
     complexity = cfg.get_query_complexity(original_query)
 
-    # Set path-specific configuration
     if complexity == "simple":
         return {
             "query_complexity": "simple",
@@ -629,20 +557,8 @@ def route_by_complexity(state: AgentState) -> str:
     return "standard_path"
 
 
-# ============================================================================
-# EARLY TERMINATION CHECK NODE
-# ============================================================================
-
 def early_termination_check_node(state: AgentState) -> Dict[str, Any]:
-    """
-    Check if research should terminate early based on diminishing returns.
-
-    Checks:
-    1. Confidence improvement between iterations
-    2. New sources found
-    3. Cost budget
-    4. Max iterations
-    """
+    """Check whether research should stop early due to diminishing returns or budget."""
     cfg = V8Config()
 
     if not cfg.enable_early_termination:
@@ -654,13 +570,10 @@ def early_termination_check_node(state: AgentState) -> Dict[str, Any]:
     iteration = state.get("research_iteration", 0)
     max_iterations = state.get("max_research_iterations", cfg.max_research_iterations)
 
-    # Create cost tracker from state
     cost_tracker = None
     if cfg.cost_budget_usd > 0:
         cost_tracker = CostTracker(budget_usd=cfg.cost_budget_usd)
-        # Approximate costs based on iteration
-        # Rough estimate: ~$0.05 per iteration for GPT-4o-mini heavy usage
-        cost_tracker.total_cost = iteration * 0.05
+        cost_tracker.total_cost = iteration * 0.05  # ~$0.05 per iteration estimate
 
     should_terminate, reason = should_terminate_early(
         current_confidence=current_confidence,

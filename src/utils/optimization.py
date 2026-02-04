@@ -1,11 +1,8 @@
-# src/utils/optimization.py
 """
-Optimization utilities for the research pipeline.
+Query dedup, cost tracking, and early-termination logic for the research loop.
 
-Features:
-- Query deduplication using embedding similarity
-- Cost tracking
-- Early termination logic
+Prevents the planner from issuing near-duplicate searches and lets the
+pipeline bail out early when confidence plateaus or budget is exhausted.
 """
 from __future__ import annotations
 
@@ -15,20 +12,15 @@ from difflib import SequenceMatcher
 
 
 def normalize_query(query: str) -> str:
-    """Normalize a query for comparison."""
-    # Lowercase, strip, remove extra whitespace
+    """Lowercase, strip filler words, and collapse whitespace for comparison."""
     normalized = " ".join(query.lower().strip().split())
-    # Remove common filler words
     fillers = {"the", "a", "an", "is", "are", "was", "were", "of", "in", "on", "at", "to"}
     words = [w for w in normalized.split() if w not in fillers]
     return " ".join(words)
 
 
 def query_similarity(q1: str, q2: str) -> float:
-    """
-    Calculate similarity between two queries using SequenceMatcher.
-    Returns float between 0 and 1.
-    """
+    """SequenceMatcher ratio (0-1) between two normalized queries."""
     n1 = normalize_query(q1)
     n2 = normalize_query(q2)
     return SequenceMatcher(None, n1, n2).ratio()
@@ -38,16 +30,7 @@ def deduplicate_queries(
     queries: List[str],
     threshold: float = 0.85
 ) -> Tuple[List[str], List[Tuple[str, str]]]:
-    """
-    Deduplicate a list of queries based on similarity.
-
-    Args:
-        queries: List of query strings
-        threshold: Similarity threshold (0-1) above which queries are considered duplicates
-
-    Returns:
-        Tuple of (deduplicated_queries, removed_duplicates_with_kept_query)
-    """
+    """Remove near-duplicate queries. Returns (unique_queries, list of (removed, kept_instead) pairs)."""
     if not queries:
         return [], []
 
@@ -73,16 +56,7 @@ def deduplicate_query_items(
     query_items: List[Dict],
     threshold: float = 0.85
 ) -> Tuple[List[Dict], int]:
-    """
-    Deduplicate query items (dicts with 'query' key) based on similarity.
-
-    Args:
-        query_items: List of dicts with 'query' key
-        threshold: Similarity threshold
-
-    Returns:
-        Tuple of (deduplicated_items, count_removed)
-    """
+    """Like deduplicate_queries, but works on dicts with a 'query' key. Merges priority upward on collision."""
     if not query_items:
         return [], 0
 
@@ -98,7 +72,7 @@ def deduplicate_query_items(
             sim = query_similarity(query, existing_query)
             if sim >= threshold:
                 is_duplicate = True
-                # Merge priorities if the duplicate has higher priority
+                # Keep the higher priority when merging duplicates
                 if item.get("priority", 0) > existing.get("priority", 0):
                     existing["priority"] = item["priority"]
                 break
@@ -114,7 +88,7 @@ def deduplicate_query_items(
 class CostTracker:
     """Track API costs for early termination."""
 
-    # Approximate costs per 1K tokens (as of 2024)
+    # Approximate costs per 1K tokens
     MODEL_COSTS = {
         "gpt-4o": {"input": 0.005, "output": 0.015},
         "gpt-4o-mini": {"input": 0.00015, "output": 0.0006},

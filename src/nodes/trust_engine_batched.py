@@ -1,13 +1,4 @@
-# src/nodes/trust_engine_batched.py
-"""
-Optimized batched trust engine nodes for v8.
-
-Combines multiple LLM calls into batched operations:
-- batched_credibility_claims_node: Credibility scoring + claims extraction in one call
-- batched_verification_node: Span verify + cross validate + confidence in one call
-
-This reduces 5 LLM calls to 2, saving ~60% of trust engine API costs.
-"""
+"""Batched trust engine that combines multiple LLM calls to reduce API costs (~60% savings)."""
 from __future__ import annotations
 
 import json
@@ -25,7 +16,6 @@ from src.core.config import V8Config
 from src.utils.json_utils import parse_json_object, parse_json_array
 from src.utils.llm import create_chat_model
 
-# Import domain trust mappings from original module
 from src.nodes.trust_engine import (
     DOMAIN_TRUST_HIGH,
     DOMAIN_TRUST_MEDIUM,
@@ -33,10 +23,6 @@ from src.nodes.trust_engine import (
     _calculate_domain_trust,
 )
 
-
-# ============================================================================
-# BATCHED CREDIBILITY + CLAIMS NODE
-# ============================================================================
 
 BATCHED_CREDIBILITY_CLAIMS_SYSTEM = """You are an expert at analyzing sources and extracting factual claims.
 
@@ -65,12 +51,7 @@ Return JSON with this structure:
 
 
 def batched_credibility_claims_node(state: AgentState) -> Dict[str, Any]:
-    """
-    Combined node that scores source credibility AND extracts claims in one LLM call.
-
-    This replaces: credibility_scorer_node + claims_node
-    Savings: 1 LLM call
-    """
+    """Scores source credibility and extracts claims in a single LLM call."""
     cfg = V8Config()
     sources = state.get("sources") or []
     evidence = state.get("evidence") or []
@@ -80,14 +61,12 @@ def batched_credibility_claims_node(state: AgentState) -> Dict[str, Any]:
     if not sources:
         return {"claims": [], "source_credibility": {}}
 
-    # Step 1: Domain trust (rule-based, no LLM needed)
     domain_scores = {}
     for s in sources:
         url = s.get("url", "")
         sid = s.get("sid", "")
         domain_scores[sid] = _calculate_domain_trust(url)
 
-    # Step 2: Prepare data for batched LLM call
     sources_text = []
     for s in sources[:15]:
         sources_text.append(
@@ -105,7 +84,6 @@ def batched_credibility_claims_node(state: AgentState) -> Dict[str, Any]:
 
     sections_str = ", ".join(outline[:8]) if outline else "General"
 
-    # Single LLM call for both tasks
     llm = create_chat_model(model=cfg.get_model_for_node("credibility"), temperature=0.1)
 
     prompt = f"""SOURCES:
@@ -125,7 +103,6 @@ Perform both tasks and return the combined JSON."""
 
     result = parse_json_object(resp.content, default={})
 
-    # Process source assessments
     source_assessments = result.get("source_assessments", [])
     llm_scores = {}
     for item in source_assessments:
@@ -136,7 +113,6 @@ Perform both tasks and return the combined JSON."""
                 "content_quality": float(item.get("content_quality", 0.5)),
             }
 
-    # Combine credibility scores
     source_credibility: Dict[str, SourceCredibility] = {}
     min_credibility = state.get("min_source_credibility", 0.35)
 
@@ -168,7 +144,6 @@ Perform both tasks and return the combined JSON."""
 
         s["credibility"] = overall
 
-    # Filter low-credibility sources
     filtered_sources = [
         s for s in sources
         if source_credibility.get(s.get("sid", ""), {}).get("overall", 0) >= min_credibility
@@ -180,7 +155,6 @@ Perform both tasks and return the combined JSON."""
         if e.get("sid") in valid_sids
     ]
 
-    # Process extracted claims
     raw_claims = result.get("claims", [])
     claims = []
     for i, c in enumerate(raw_claims):
@@ -192,7 +166,6 @@ Perform both tasks and return the combined JSON."""
                 "eids": c.get("supporting_eids", []),
             })
 
-    # Create citations mapping
     citations = [
         {"cid": c["cid"], "eids": c.get("eids", [])}
         for c in claims
@@ -206,10 +179,6 @@ Perform both tasks and return the combined JSON."""
         "citations": citations,
     }
 
-
-# ============================================================================
-# BATCHED VERIFICATION NODE
-# ============================================================================
 
 BATCHED_VERIFICATION_SYSTEM = """You are an expert fact-checker. Perform comprehensive verification of claims.
 
@@ -247,12 +216,7 @@ Guidelines:
 
 
 def batched_verification_node(state: AgentState) -> Dict[str, Any]:
-    """
-    Combined node that does span verification, cross-validation, AND confidence scoring.
-
-    This replaces: span_verify_node + cross_validate_node + claim_confidence_scorer_node
-    Savings: 2 LLM calls
-    """
+    """Performs span verification, cross-validation, and confidence scoring in a single LLM call."""
     cfg = V8Config()
     claims = state.get("claims") or []
     evidence = state.get("evidence") or []
@@ -270,12 +234,10 @@ def batched_verification_node(state: AgentState) -> Dict[str, Any]:
             "hallucination_score": 1.0 if claims else 0.0,
         }
 
-    # Build mappings
     eid_to_evidence = {e["eid"]: e for e in evidence}
     eid_to_sid = {e["eid"]: e["sid"] for e in evidence}
     cid_to_eids = {c["cid"]: c.get("eids", []) for c in citations}
 
-    # Format data for LLM
     claims_text = json.dumps([
         {"cid": c["cid"], "text": c["text"], "section": c.get("section", "General")}
         for c in claims
@@ -286,7 +248,6 @@ def batched_verification_node(state: AgentState) -> Dict[str, Any]:
         for e in evidence[:25]
     ])
 
-    # Add source credibility info
     source_info = "\n".join([
         f"{sid}: credibility={cred.get('overall', 0.5):.2f}"
         for sid, cred in list(source_credibility.items())[:15]
@@ -312,7 +273,6 @@ Verify each claim, checking for span matches and cross-validation."""
 
     verifications = parse_json_array(resp.content, default=[])
 
-    # Process results
     verified_citations: List[VerifiedCitation] = []
     unverified_claims: List[str] = []
     cross_validated_claims: List[VerifiedCitation] = []
@@ -357,7 +317,6 @@ Verify each claim, checking for span matches and cross-validation."""
         else:
             unverified_claims.append(cid)
 
-    # Add claims not in verifications as unverified
     verified_cids = {vc["cid"] for vc in verified_citations}
     unverified_cids = set(unverified_claims)
     for claim in claims:
@@ -365,7 +324,6 @@ Verify each claim, checking for span matches and cross-validation."""
         if cid not in verified_cids and cid not in unverified_cids:
             unverified_claims.append(cid)
 
-    # Calculate aggregate scores
     total_claims = len(claims)
     verified_count = len(verified_citations)
     hallucination_score = 1.0 - (verified_count / total_claims) if total_claims > 0 else 0.0
@@ -389,25 +347,9 @@ Verify each claim, checking for span matches and cross-validation."""
     }
 
 
-# ============================================================================
-# COMBINED TRUST ENGINE NODE (Full Batch)
-# ============================================================================
-
 def full_trust_engine_batched(state: AgentState) -> Dict[str, Any]:
-    """
-    Fully batched trust engine that runs both batched nodes in sequence.
-
-    Use this when you want maximum optimization with just 2 LLM calls total
-    for the entire trust engine phase.
-    """
-    # First batch: credibility + claims
+    """Run the full trust engine in just 2 LLM calls (credibility+claims, then verification+confidence)."""
     result1 = batched_credibility_claims_node(state)
-
-    # Update state with first results
     updated_state = {**state, **result1}
-
-    # Second batch: verification + confidence
     result2 = batched_verification_node(updated_state)
-
-    # Combine results
     return {**result1, **result2}

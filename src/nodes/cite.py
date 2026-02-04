@@ -1,4 +1,3 @@
-# src/nodes/cite.py
 from __future__ import annotations
 
 import json
@@ -101,7 +100,6 @@ def cite_node(state: AgentState) -> Dict[str, Any]:
     txt = resp.content.strip()
     cites: List[ClaimCitations] = parse_json_array(txt, default=[])
 
-    # Build a map cid -> cleaned valid eids
     cid_to_eids: Dict[str, List[str]] = {}
     for item in cites:
         if not isinstance(item, dict):
@@ -113,8 +111,7 @@ def cite_node(state: AgentState) -> Dict[str, Any]:
         eids = [e for e in raw_eids if e in valid_eids]
         cid_to_eids[cid] = list(dict.fromkeys(eids))  # dedup preserve order
 
-    # Fallback heuristic: if model failed to cite for a claim, attach best evidence by section
-    # We prefer evidence with same section; else first evidence.
+    # Fallback: attach section-matching evidence when LLM didn't cite
     section_to_eids: Dict[str, List[str]] = {}
     for e in evidence:
         sec = (e.get("section") or "General").strip()

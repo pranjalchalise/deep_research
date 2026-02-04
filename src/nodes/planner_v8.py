@@ -1,11 +1,6 @@
-# src/nodes/planner_v8.py
 """
-Enhanced research planner for v8.
-
-Features:
-- Research tree generation (primary/secondary/tertiary questions)
-- Query complexity assessment
-- Optimized query templates
+Research planner that decomposes queries into hierarchical research trees
+(primary/secondary/tertiary questions) with optimized search queries.
 """
 from __future__ import annotations
 
@@ -23,10 +18,6 @@ from src.core.state import (
 from src.utils.json_utils import parse_json_object
 from src.utils.llm import create_chat_model
 
-
-# ============================================================================
-# RESEARCH TREE PLANNER
-# ============================================================================
 
 PLANNER_V8_SYSTEM = """You are a research planning expert.
 
@@ -70,14 +61,7 @@ Return ONLY valid JSON:
 
 
 def planner_node_v8(state: AgentState) -> Dict[str, Any]:
-    """
-    Generate a hierarchical research plan with a research tree.
-
-    The research tree allows the orchestrator to:
-    1. Prioritize questions
-    2. Assign to subagents
-    3. Track coverage
-    """
+    """Generate a hierarchical research plan with a research tree."""
     original_query = state.get("original_query") or state["messages"][-1].content
     primary_anchor = state.get("primary_anchor") or ""
     anchor_terms = state.get("anchor_terms") or []
@@ -85,7 +69,6 @@ def planner_node_v8(state: AgentState) -> Dict[str, Any]:
     discovery = state.get("discovery") or {}
     query_type = discovery.get("query_type", "general")
 
-    # If no primary anchor, try to extract
     if not primary_anchor:
         if selected_entity:
             primary_anchor = selected_entity.get("name", "")
@@ -93,7 +76,6 @@ def planner_node_v8(state: AgentState) -> Dict[str, Any]:
             primary_anchor = anchor_terms[0]
             anchor_terms = anchor_terms[1:]
 
-    # Use template-based generation for known query types
     if query_type == "person" and primary_anchor:
         research_tree = _generate_person_research_tree(primary_anchor, anchor_terms)
         outline = ["Overview", "Background", "Education", "Career", "Achievements", "Recent Activity"]
@@ -121,12 +103,10 @@ def planner_node_v8(state: AgentState) -> Dict[str, Any]:
             )
 
     else:
-        # LLM-based generation for complex/custom queries
         research_tree, outline, queries = _generate_llm_research_tree(
             original_query, primary_anchor, anchor_terms, query_type, selected_entity
         )
 
-    # Build the plan
     plan: Plan = {
         "topic": primary_anchor if primary_anchor else f"Research: {original_query[:50]}",
         "outline": outline,
@@ -134,7 +114,6 @@ def planner_node_v8(state: AgentState) -> Dict[str, Any]:
         "research_tree": research_tree,
     }
 
-    # Ensure all queries contain the primary anchor
     if primary_anchor:
         _ensure_primary_anchor_in_queries(plan["queries"], primary_anchor)
         _ensure_primary_anchor_in_tree(plan["research_tree"], primary_anchor)
@@ -160,10 +139,6 @@ def planner_node_v8(state: AgentState) -> Dict[str, Any]:
         "subagent_findings": [],
     }
 
-
-# ============================================================================
-# TEMPLATE-BASED RESEARCH TREES
-# ============================================================================
 
 def _generate_person_research_tree(name: str, context: List[str]) -> ResearchTree:
     """Generate research tree for person queries."""
@@ -486,7 +461,6 @@ Create a comprehensive research tree.""")
     research_tree = result.get("research_tree", {"primary": [], "secondary": [], "tertiary": []})
     outline = result.get("outline", ["Overview", "Details", "Analysis", "Conclusion"])
 
-    # Convert to flat queries
     queries = _flatten_tree_to_queries(research_tree)
 
     return research_tree, outline, queries

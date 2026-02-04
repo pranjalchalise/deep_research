@@ -1,13 +1,4 @@
-# src/nodes/trust_engine.py
-"""
-Enhanced trust engine nodes for v8.
-
-Implements:
-- credibility_scorer_node: Score sources using E-E-A-T and domain trust
-- span_verify_node: Verify each claim against exact text spans
-- cross_validate_node: Check if claims are supported by multiple sources
-- claim_confidence_scorer_node: Calculate per-claim and overall confidence
-"""
+"""Trust engine: source credibility scoring, span verification, cross-validation, and confidence scoring."""
 from __future__ import annotations
 
 import json
@@ -27,11 +18,6 @@ from src.utils.json_utils import parse_json_object, parse_json_array
 from src.utils.llm import create_chat_model
 
 
-# ============================================================================
-# CREDIBILITY SCORER NODE
-# ============================================================================
-
-# Domain trust tiers
 DOMAIN_TRUST_HIGH = {
     ".edu": 0.9,
     ".gov": 0.9,
@@ -89,32 +75,21 @@ Guidelines:
 
 
 def credibility_scorer_node(state: AgentState) -> Dict[str, Any]:
-    """
-    Score each source's credibility using E-E-A-T principles.
-
-    Components:
-    1. Domain trust (rule-based)
-    2. Freshness (from publish date if available)
-    3. Authority (LLM-assessed)
-    4. Content quality (LLM-assessed)
-    """
+    """Score source credibility using domain trust, authority, and content quality."""
     sources = state.get("sources") or []
     evidence = state.get("evidence") or []
 
     if not sources:
         return {}
 
-    # Step 1: Domain trust (rule-based)
     domain_scores = {}
     for s in sources:
         url = s.get("url", "")
         sid = s.get("sid", "")
         domain_scores[sid] = _calculate_domain_trust(url)
 
-    # Step 2: LLM assessment of authority and content quality
     llm = create_chat_model(model="gpt-4o-mini", temperature=0.1)
 
-    # Prepare sources for LLM
     sources_text = []
     for s in sources[:15]:  # Limit to avoid token issues
         sources_text.append(
@@ -137,7 +112,6 @@ def credibility_scorer_node(state: AgentState) -> Dict[str, Any]:
                 "content_quality": float(item.get("content_quality", 0.5)),
             }
 
-    # Step 3: Combine scores
     source_credibility: Dict[str, SourceCredibility] = {}
     min_credibility = state.get("min_source_credibility", 0.35)
 
@@ -150,8 +124,6 @@ def credibility_scorer_node(state: AgentState) -> Dict[str, Any]:
         authority = llm_scores.get(sid, {}).get("authority", 0.5)
         content_quality = llm_scores.get(sid, {}).get("content_quality", 0.5)
 
-        # Weighted average
-        # Domain trust: 30%, Freshness: 15%, Authority: 25%, Content quality: 30%
         overall = (
             domain_trust * 0.30 +
             freshness * 0.15 +
@@ -169,16 +141,13 @@ def credibility_scorer_node(state: AgentState) -> Dict[str, Any]:
             "overall": overall,
         }
 
-        # Update source with credibility score
         s["credibility"] = overall
 
-    # Filter low-credibility sources
     filtered_sources = [
         s for s in sources
         if source_credibility.get(s.get("sid", ""), {}).get("overall", 0) >= min_credibility
     ]
 
-    # Also filter evidence
     valid_sids = {s["sid"] for s in filtered_sources}
     filtered_evidence = [
         e for e in evidence
@@ -199,37 +168,27 @@ def _calculate_domain_trust(url: str) -> float:
         host = (parsed.hostname or "").lower()
         host = host.replace("www.", "")
 
-        # Check high trust domains
         for pattern, score in DOMAIN_TRUST_HIGH.items():
             if pattern.startswith("."):
-                # TLD check
                 if host.endswith(pattern):
                     return score
             else:
-                # Domain check
                 if pattern in host:
                     return score
 
-        # Check medium trust domains
         for pattern, score in DOMAIN_TRUST_MEDIUM.items():
             if pattern in host:
                 return score
 
-        # Check low trust domains
         for pattern, score in DOMAIN_TRUST_LOW.items():
             if pattern in host:
                 return score
 
-        # Default
         return 0.5
 
     except Exception:
         return 0.5
 
-
-# ============================================================================
-# SPAN VERIFY NODE
-# ============================================================================
 
 SPAN_VERIFY_SYSTEM = """Verify if claims are supported by exact evidence spans.
 
@@ -260,14 +219,7 @@ Guidelines:
 
 
 def span_verify_node(state: AgentState) -> Dict[str, Any]:
-    """
-    Verify each claim against exact evidence spans.
-
-    This prevents:
-    - Hallucinated facts
-    - Misattributed claims
-    - Over-generalization
-    """
+    """Verify each claim against exact evidence text spans."""
     claims = state.get("claims") or []
     evidence = state.get("evidence") or []
     citations = state.get("citations") or []
@@ -281,18 +233,15 @@ def span_verify_node(state: AgentState) -> Dict[str, Any]:
 
     llm = create_chat_model(model="gpt-4o-mini", temperature=0)
 
-    # Build evidence lookup
     eid_to_evidence = {e["eid"]: e for e in evidence}
     cid_to_eids = {c["cid"]: c.get("eids", []) for c in citations}
 
-    # Process claims in batches to reduce API calls
     batch_size = 5
     all_verifications = []
 
     for i in range(0, len(claims), batch_size):
         batch_claims = claims[i:i+batch_size]
 
-        # Gather relevant evidence for this batch
         batch_evidence = []
         for claim in batch_claims:
             cid = claim["cid"]
@@ -301,11 +250,9 @@ def span_verify_node(state: AgentState) -> Dict[str, Any]:
                 if eid in eid_to_evidence and eid_to_evidence[eid] not in batch_evidence:
                     batch_evidence.append(eid_to_evidence[eid])
 
-        # If no specific citations, include some evidence
         if not batch_evidence:
             batch_evidence = evidence[:5]
 
-        # Format for LLM
         claims_text = json.dumps([
             {"cid": c["cid"], "text": c["text"]}
             for c in batch_claims
@@ -324,7 +271,6 @@ def span_verify_node(state: AgentState) -> Dict[str, Any]:
         verifications = parse_json_array(resp.content, default=[])
         all_verifications.extend(verifications)
 
-    # Process verifications
     verified_citations: List[VerifiedCitation] = []
     unverified_claims: List[str] = []
 
@@ -349,7 +295,6 @@ def span_verify_node(state: AgentState) -> Dict[str, Any]:
         else:
             unverified_claims.append(cid)
 
-    # Add claims that weren't in verifications
     verified_cids = {vc["cid"] for vc in verified_citations}
     unverified_cids = set(unverified_claims)
     for claim in claims:
@@ -357,7 +302,6 @@ def span_verify_node(state: AgentState) -> Dict[str, Any]:
         if cid not in verified_cids and cid not in unverified_cids:
             unverified_claims.append(cid)
 
-    # Calculate hallucination score
     total_claims = len(claims)
     verified_count = len(verified_citations)
     hallucination_score = 1.0 - (verified_count / total_claims) if total_claims > 0 else 0.0
@@ -368,10 +312,6 @@ def span_verify_node(state: AgentState) -> Dict[str, Any]:
         "hallucination_score": hallucination_score,
     }
 
-
-# ============================================================================
-# CROSS VALIDATE NODE
-# ============================================================================
 
 CROSS_VALIDATE_SYSTEM = """Identify which claims are supported by multiple independent sources.
 
@@ -395,11 +335,7 @@ Return JSON:
 
 
 def cross_validate_node(state: AgentState) -> Dict[str, Any]:
-    """
-    Check if claims are supported by multiple independent sources.
-
-    Cross-validated claims are more reliable.
-    """
+    """Check if claims are supported by multiple independent sources."""
     verified_citations = state.get("verified_citations") or []
     evidence = state.get("evidence") or []
 
@@ -409,13 +345,11 @@ def cross_validate_node(state: AgentState) -> Dict[str, Any]:
             "single_source_claims": verified_citations,
         }
 
-    # Build EID to SID mapping
     eid_to_sid = {e["eid"]: e["sid"] for e in evidence}
     eid_to_text = {e["eid"]: e["text"] for e in evidence}
 
     llm = create_chat_model(model="gpt-4o-mini", temperature=0)
 
-    # Format claims and evidence
     claims_text = json.dumps([
         {"cid": vc["cid"], "claim": vc["claim_text"], "primary_eid": vc["eid"]}
         for vc in verified_citations
@@ -433,7 +367,6 @@ def cross_validate_node(state: AgentState) -> Dict[str, Any]:
 
     cross_validation = parse_json_array(resp.content, default=[])
 
-    # Build lookup
     cv_lookup = {}
     for cv in cross_validation:
         if isinstance(cv, dict):
@@ -472,26 +405,14 @@ def cross_validate_node(state: AgentState) -> Dict[str, Any]:
     }
 
 
-# ============================================================================
-# CLAIM CONFIDENCE SCORER NODE
-# ============================================================================
-
 def claim_confidence_scorer_node(state: AgentState) -> Dict[str, Any]:
-    """
-    Calculate per-claim and overall confidence scores.
-
-    Factors:
-    - Span verification match score
-    - Cross-validation (multiple sources)
-    - Source credibility of supporting sources
-    """
+    """Calculate per-claim and overall confidence from verification, cross-validation, and source quality."""
     verified_citations = state.get("verified_citations") or []
     cross_validated_claims = state.get("cross_validated_claims") or []
     single_source_claims = state.get("single_source_claims") or []
     source_credibility = state.get("source_credibility") or {}
     claims = state.get("claims") or []
 
-    # Create lookup for cross-validated status
     cv_cids = {vc["cid"] for vc in cross_validated_claims}
 
     claim_confidence: Dict[str, float] = {}
@@ -501,18 +422,14 @@ def claim_confidence_scorer_node(state: AgentState) -> Dict[str, Any]:
         cid = vc["cid"]
         claim_text = vc.get("claim_text", "")
 
-        # Find the claim to get its section
         claim = next((c for c in claims if c["cid"] == cid), {})
         section = claim.get("section", "General")
 
-        # Base: span match score
         base_score = vc.get("match_score", 0.5)
 
-        # Bonus: cross-validation
         is_cross_validated = cid in cv_cids
         cross_bonus = 0.15 if is_cross_validated else 0
 
-        # Weight by source credibility
         supporting_sids = vc.get("supporting_sids", [])
         if supporting_sids:
             avg_source_cred = sum(
@@ -522,21 +439,17 @@ def claim_confidence_scorer_node(state: AgentState) -> Dict[str, Any]:
         else:
             avg_source_cred = 0.5
 
-        # Final confidence
         confidence = min(1.0, base_score * 0.5 + avg_source_cred * 0.35 + cross_bonus)
         claim_confidence[cid] = confidence
 
-        # Track section confidence
         if section not in section_confidence:
             section_confidence[section] = []
         section_confidence[section].append(confidence)
 
-    # Calculate section-level confidence (average)
     section_conf_avg = {}
     for section, confs in section_confidence.items():
         section_conf_avg[section] = sum(confs) / len(confs) if confs else 0.0
 
-    # Overall confidence
     if claim_confidence:
         overall = sum(claim_confidence.values()) / len(claim_confidence)
     else:

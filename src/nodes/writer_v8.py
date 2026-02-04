@@ -1,12 +1,6 @@
-# src/nodes/writer_v8.py
 """
-Enhanced writer node for v8.
-
-Features:
-- Confidence indicators per claim (✓✓, ✓, ⚠)
-- Knowledge gap acknowledgment
-- Source credibility display
-- Research metadata in report
+Writer node that produces the final research report with confidence
+indicators (✓✓/✓/⚠), source credibility, and knowledge gap sections.
 """
 from __future__ import annotations
 
@@ -65,16 +59,9 @@ Output markdown with:
 
 
 def writer_node_v8(state: AgentState) -> Dict[str, Any]:
-    """
-    Enhanced writer with:
-    - Confidence indicators per claim
-    - Knowledge gap acknowledgment
-    - Source credibility display
-    - Research metadata
-    """
+    """Generate the final report with confidence indicators and knowledge gap sections."""
     issues = state.get("issues") or []
 
-    # Check for blocking issues
     if any(i.get("level") == "block" for i in issues):
         msg = "Blocked: cannot write report.\n\nIssues:\n"
         for i in issues:
@@ -90,7 +77,6 @@ def writer_node_v8(state: AgentState) -> Dict[str, Any]:
     claims: List[Claim] = state.get("claims") or []
     citations = state.get("citations") or []
 
-    # New v8 state
     verified_citations = state.get("verified_citations") or []
     unverified_claims = state.get("unverified_claims") or []
     cross_validated_claims = state.get("cross_validated_claims") or []
@@ -99,29 +85,23 @@ def writer_node_v8(state: AgentState) -> Dict[str, Any]:
     knowledge_gaps = state.get("knowledge_gaps") or []
     source_credibility = state.get("source_credibility") or {}
 
-    # Entity info
     primary_anchor = state.get("primary_anchor") or ""
     anchor_terms = state.get("anchor_terms") or []
     original_query = state.get("original_query") or ""
 
-    # ---- Handle "no relevant information found" ----
     if not sources or not evidence or not claims:
         return _generate_no_info_report(state, topic, primary_anchor, anchor_terms, original_query)
 
-    # Filter out unverified claims
     verified_cids = {vc["cid"] for vc in verified_citations}
     verified_claims = [c for c in claims if c["cid"] in verified_cids]
 
-    # If we have claims but none verified
     if claims and not verified_claims:
         return _generate_insufficient_report(state, topic, primary_anchor, original_query)
 
-    # ---- Build claim packets with confidence indicators ----
     cid_to_eids = {c["cid"]: c.get("eids", []) for c in citations}
     eid_to_sid = {e["eid"]: e["sid"] for e in evidence}
     cv_cids = {vc["cid"] for vc in cross_validated_claims}
 
-    # Thresholds
     high_conf_threshold = state.get("high_confidence_threshold", 0.8)
     med_conf_threshold = state.get("medium_confidence_threshold", 0.6)
 
@@ -130,7 +110,6 @@ def writer_node_v8(state: AgentState) -> Dict[str, Any]:
         cid = cl["cid"]
         conf = claim_confidence.get(cid, 0.5)
 
-        # Determine indicator
         if cid in cv_cids and conf >= high_conf_threshold:
             indicator = "✓✓"
         elif conf >= med_conf_threshold:
@@ -138,7 +117,6 @@ def writer_node_v8(state: AgentState) -> Dict[str, Any]:
         else:
             indicator = "⚠"
 
-        # Get source citations
         sids = []
         for eid in cid_to_eids.get(cid, []):
             sid = eid_to_sid.get(eid)
@@ -156,7 +134,6 @@ def writer_node_v8(state: AgentState) -> Dict[str, Any]:
             "cross_validated": cid in cv_cids,
         })
 
-    # ---- Build knowledge gaps section ----
     gaps_summary = ""
     if knowledge_gaps:
         gaps_list = []
@@ -164,7 +141,6 @@ def writer_node_v8(state: AgentState) -> Dict[str, Any]:
             gaps_list.append(f"- **{gap.get('section', 'General')}**: {gap.get('description', 'Information limited')}")
         gaps_summary = "\n".join(gaps_list)
 
-    # ---- Build research quality metrics ----
     total_claims = len(claims)
     verified_count = len(verified_claims)
     cv_count = len(cross_validated_claims)
@@ -178,7 +154,6 @@ def writer_node_v8(state: AgentState) -> Dict[str, Any]:
         "sources_used": len(sources),
     }
 
-    # ---- Build sources list with credibility ----
     sources_list_items = []
     for s in sources:
         sid = s["sid"]
@@ -188,7 +163,6 @@ def writer_node_v8(state: AgentState) -> Dict[str, Any]:
 
     sources_list = "\n".join(sources_list_items)
 
-    # ---- Generate report ----
     llm = create_chat_model(model="gpt-4o-mini", temperature=0.2)
 
     prompt = f"""TITLE: {topic}
@@ -221,7 +195,6 @@ Add a "Research Quality" section at the end summarizing the confidence metrics.
 
     report = (resp.content or "").strip()
 
-    # Build metadata
     research_metadata: ResearchMetadata = {
         "overall_confidence": overall_confidence,
         "verified_claims": verified_count,

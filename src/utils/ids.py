@@ -1,4 +1,10 @@
-# src/utils/ids.py
+"""
+Source and evidence identity management: URL normalization, deduplication, and ID assignment.
+
+Every source gets a stable ID (S1, S2, ...) and every evidence chunk gets an
+ID (E1, E2, ...) linked back to its source. Dedup uses normalized URLs so
+http://www.example.com/ and https://example.com are treated as the same source.
+"""
 from __future__ import annotations
 
 import hashlib
@@ -7,7 +13,7 @@ from urllib.parse import urlparse, urlunparse
 
 
 def stable_hash(s: str) -> str:
-    """Create a stable hash for a string (useful for cache keys)."""
+    """Deterministic short hash for cache keys and fingerprinting."""
     return hashlib.sha256(s.encode("utf-8")).hexdigest()[:16]
 
 
@@ -18,7 +24,7 @@ class RawSource(TypedDict):
 
 
 class Source(TypedDict):
-    sid: str  # S1
+    sid: str       # e.g. "S1"
     url: str
     title: str
     snippet: str
@@ -32,8 +38,8 @@ class RawEvidence(TypedDict):
 
 
 class Evidence(TypedDict):
-    eid: str  # E1
-    sid: str  # S1
+    eid: str       # e.g. "E1"
+    sid: str       # cross-ref to parent Source
     url: str
     title: str
     section: str
@@ -41,14 +47,7 @@ class Evidence(TypedDict):
 
 
 def normalize_url(url: str) -> str:
-    """
-    Normalize URL for deduplication:
-    - Strip trailing slashes
-    - Lowercase scheme and host
-    - Remove default ports
-    - Remove www. prefix
-    - Remove fragments
-    """
+    """Canonicalize a URL so that trivial variants (www, trailing slash, fragments) collapse."""
     url = url.strip()
     if not url:
         return ""
@@ -56,20 +55,16 @@ def normalize_url(url: str) -> str:
     try:
         parsed = urlparse(url)
 
-        # Lowercase scheme and host
         scheme = (parsed.scheme or "https").lower()
         host = (parsed.hostname or "").lower()
 
-        # Remove www. prefix
         if host.startswith("www."):
             host = host[4:]
 
-        # Remove default ports
         port = parsed.port
         if (scheme == "http" and port == 80) or (scheme == "https" and port == 443):
             port = None
 
-        # Rebuild netloc
         netloc = host
         if port:
             netloc = f"{host}:{port}"
@@ -79,10 +74,7 @@ def normalize_url(url: str) -> str:
                 userinfo = f"{userinfo}:{parsed.password}"
             netloc = f"{userinfo}@{netloc}"
 
-        # Strip trailing slash from path (but keep "/" for root)
         path = parsed.path.rstrip("/") or "/"
-
-        # Remove fragment, keep query
         normalized = urlunparse((scheme, netloc, path, parsed.params, parsed.query, ""))
         return normalized
 
@@ -91,13 +83,9 @@ def normalize_url(url: str) -> str:
 
 
 def dedup_sources(raw_sources: List[RawSource]) -> List[RawSource]:
-    """
-    Deduplicate sources by normalized URL.
-    Keeps the longest snippet when duplicates are found.
-    """
-    # Map: normalized_url -> (original_url, RawSource)
+    """Collapse duplicates by normalized URL, keeping the longest snippet of each."""
     seen: Dict[str, RawSource] = {}
-    url_map: Dict[str, str] = {}  # normalized -> original (first seen)
+    url_map: Dict[str, str] = {}
 
     for s in raw_sources or []:
         url = (s.get("url") or "").strip()
@@ -109,11 +97,9 @@ def dedup_sources(raw_sources: List[RawSource]) -> List[RawSource]:
         snippet = (s.get("snippet") or "").strip()
 
         if norm_url in seen:
-            # Keep longer snippet
             existing = seen[norm_url]
             if len(snippet) > len(existing.get("snippet") or ""):
                 seen[norm_url]["snippet"] = snippet
-            # Keep longer title if current is just URL
             if existing.get("title") == existing.get("url") and title != url:
                 seen[norm_url]["title"] = title
         else:
@@ -124,9 +110,7 @@ def dedup_sources(raw_sources: List[RawSource]) -> List[RawSource]:
 
 
 def assign_source_ids(sources: List[RawSource]) -> List[Source]:
-    """
-    Assign stable sequential ids: S1, S2, ...
-    """
+    """Tag each source with a sequential ID (S1, S2, ...)."""
     out: List[Source] = []
     for i, s in enumerate(sources or [], start=1):
         out.append(
@@ -141,40 +125,33 @@ def assign_source_ids(sources: List[RawSource]) -> List[Source]:
 
 
 def _text_fingerprint(text: str) -> str:
-    """
-    Create a rough fingerprint for text deduplication.
-    Normalizes whitespace and lowercases for comparison.
-    """
+    """Normalize whitespace and case so near-identical texts produce the same key."""
     return " ".join(text.lower().split())
 
 
 def assign_evidence_ids(raw_evidence: List[RawEvidence], url_to_sid: Dict[str, str]) -> List[Evidence]:
     """
-    Convert RawEvidence -> Evidence with ids (E1, E2, ...) and attach sid by url.
-    - Drops evidence whose url doesn't exist in url_to_sid
-    - Deduplicates evidence with identical/very similar text from same source
-    - Also tries to match evidence URLs via normalization
+    Assign E1, E2, ... IDs and link each evidence chunk to its parent source.
+
+    Drops evidence from unknown URLs, deduplicates near-identical text from
+    the same source, and tries both exact and normalized URL matching.
     """
-    # Build normalized URL lookup
     norm_to_sid: Dict[str, str] = {}
     for url, sid in url_to_sid.items():
         norm_to_sid[normalize_url(url)] = sid
 
     out: List[Evidence] = []
-    # Track (sid, text_fingerprint) to avoid duplicates
-    seen_evidence: Dict[tuple, Evidence] = {}
+    seen_evidence: Dict[tuple, Evidence] = {}  # keyed by (sid, fingerprint)
 
     for e in raw_evidence or []:
         url = (e.get("url") or "").strip()
         if not url:
             continue
 
-        # Try exact match first, then normalized
         sid = url_to_sid.get(url)
         if not sid:
             sid = norm_to_sid.get(normalize_url(url))
         if not sid:
-            # evidence from a URL we didn't keep as a source
             continue
 
         title = (e.get("title") or "").strip() or url
@@ -183,12 +160,10 @@ def assign_evidence_ids(raw_evidence: List[RawEvidence], url_to_sid: Dict[str, s
         if not text:
             continue
 
-        # Check for duplicate evidence (same source, similar text)
         fingerprint = _text_fingerprint(text)
         key = (sid, fingerprint)
 
         if key in seen_evidence:
-            # Keep the longer version
             existing = seen_evidence[key]
             if len(text) > len(existing.get("text") or ""):
                 existing["text"] = text[:1200]
@@ -204,7 +179,6 @@ def assign_evidence_ids(raw_evidence: List[RawEvidence], url_to_sid: Dict[str, s
         }
         seen_evidence[key] = evidence
 
-    # Assign sequential IDs
     for j, ev in enumerate(seen_evidence.values(), start=1):
         ev["eid"] = f"E{j}"
         out.append(ev)

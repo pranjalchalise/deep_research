@@ -1,6 +1,8 @@
-# src/utils/llm.py
 """
-LLM utilities with retry logic for handling transient API failures.
+Wrappers around LangChain chat models that add exponential-backoff retries.
+
+LLM APIs flake out regularly (rate limits, 502s, timeouts), so every call
+in the pipeline goes through these wrappers instead of hitting the model directly.
 """
 from __future__ import annotations
 
@@ -8,7 +10,6 @@ import time
 import random
 from typing import Any, Callable, List, Optional, Type, TypeVar, Union
 
-# Common transient error types that should be retried
 RETRYABLE_EXCEPTIONS = (
     "RateLimitError",
     "APIConnectionError",
@@ -23,15 +24,13 @@ T = TypeVar("T")
 
 
 def is_retryable_error(exc: Exception) -> bool:
-    """Check if an exception is a retryable transient error."""
+    """Decide whether an error is transient (worth retrying) vs. a real bug."""
     exc_name = type(exc).__name__
     exc_str = str(exc).lower()
 
-    # Check exception type name
     if exc_name in RETRYABLE_EXCEPTIONS:
         return True
 
-    # Check for common retryable patterns in message
     retryable_patterns = [
         "rate limit",
         "rate_limit",
@@ -64,22 +63,11 @@ def retry_with_backoff(
     on_retry: Optional[Callable[[Exception, int, float], None]] = None,
 ) -> T:
     """
-    Execute a function with exponential backoff retry on transient failures.
+    Call func() with exponential backoff on transient failures.
 
-    Args:
-        func: Function to execute (should take no arguments, use lambda/closure)
-        max_retries: Maximum number of retry attempts
-        base_delay: Initial delay in seconds
-        max_delay: Maximum delay between retries
-        exponential_base: Base for exponential backoff (delay = base_delay * base^attempt)
-        jitter: Add random jitter to prevent thundering herd
-        on_retry: Optional callback(exception, attempt, delay) called before each retry
-
-    Returns:
-        Result of func() on success
-
-    Raises:
-        Last exception if all retries exhausted
+    Non-retryable errors (auth failures, bad requests, etc.) are raised
+    immediately. Jitter is on by default to avoid thundering-herd when
+    multiple workers hit the same rate limit.
     """
     last_exception: Optional[Exception] = None
 
@@ -89,42 +77,29 @@ def retry_with_backoff(
         except Exception as e:
             last_exception = e
 
-            # Don't retry on non-retryable errors
             if not is_retryable_error(e):
                 raise
 
-            # Don't retry if we've exhausted attempts
             if attempt >= max_retries:
                 raise
 
-            # Calculate delay with exponential backoff
             delay = min(base_delay * (exponential_base ** attempt), max_delay)
-
-            # Add jitter (0.5x to 1.5x)
             if jitter:
                 delay = delay * (0.5 + random.random())
 
-            # Call retry callback if provided
             if on_retry:
                 on_retry(e, attempt + 1, delay)
 
             time.sleep(delay)
 
-    # Should never reach here, but satisfy type checker
+    # Unreachable in practice, but keeps the type checker happy
     if last_exception:
         raise last_exception
     raise RuntimeError("Retry logic error")
 
 
 class LLMWrapper:
-    """
-    Wrapper for LangChain LLM/Chat models with automatic retry.
-
-    Usage:
-        llm = ChatOpenAI(model="gpt-4o-mini")
-        wrapped = LLMWrapper(llm, max_retries=3)
-        response = wrapped.invoke(messages)
-    """
+    """Thin wrapper around a LangChain chat model that retries on transient API errors."""
 
     def __init__(
         self,
@@ -145,7 +120,6 @@ class LLMWrapper:
             print(f"[LLM] Retry {attempt}/{self.max_retries} after {delay:.1f}s: {type(exc).__name__}")
 
     def invoke(self, *args: Any, **kwargs: Any) -> Any:
-        """Invoke the LLM with retry logic."""
         return retry_with_backoff(
             func=lambda: self.llm.invoke(*args, **kwargs),
             max_retries=self.max_retries,
@@ -155,7 +129,6 @@ class LLMWrapper:
         )
 
     def batch(self, *args: Any, **kwargs: Any) -> Any:
-        """Batch invoke the LLM with retry logic."""
         return retry_with_backoff(
             func=lambda: self.llm.batch(*args, **kwargs),
             max_retries=self.max_retries,
@@ -165,7 +138,7 @@ class LLMWrapper:
         )
 
     async def ainvoke(self, *args: Any, **kwargs: Any) -> Any:
-        """Async invoke - note: retry is synchronous, use for simple cases."""
+        # NOTE: the retry loop itself is still synchronous here
         return retry_with_backoff(
             func=lambda: self.llm.ainvoke(*args, **kwargs),
             max_retries=self.max_retries,
@@ -182,19 +155,7 @@ def create_chat_model(
     verbose: bool = False,
     **kwargs: Any,
 ) -> LLMWrapper:
-    """
-    Create a ChatOpenAI model with retry wrapper.
-
-    Args:
-        model: Model name (default: gpt-4o-mini)
-        temperature: Temperature setting
-        max_retries: Number of retries on transient failures
-        verbose: Print retry messages
-        **kwargs: Additional arguments passed to ChatOpenAI
-
-    Returns:
-        LLMWrapper instance with retry logic
-    """
+    """Create a ChatOpenAI model wrapped with retry logic."""
     from langchain_openai import ChatOpenAI
 
     llm = ChatOpenAI(model=model, temperature=temperature, **kwargs)
@@ -209,24 +170,10 @@ def create_model_for_node(
     **kwargs: Any,
 ) -> LLMWrapper:
     """
-    Create a ChatOpenAI model using the configured model for a specific node.
+    Create a model for a specific pipeline node, using V8Config for model routing.
 
-    This enables model tiering - using cheaper models for simple tasks
-    and smarter models for critical tasks.
-
-    Args:
-        node_name: Name of the node (e.g., "analyzer", "planner", "writer")
-        temperature: Temperature setting
-        max_retries: Number of retries on transient failures
-        verbose: Print retry messages
-        **kwargs: Additional arguments passed to ChatOpenAI
-
-    Returns:
-        LLMWrapper instance with retry logic
-
-    Model routing (from V8Config):
-        - gpt-4o-mini: analyzer, discovery, orchestrator, subagent, claims, cite, credibility
-        - gpt-4o: planner, writer (critical nodes)
+    This is where model tiering happens -- cheap models for extraction tasks,
+    smarter models for planning and writing.
     """
     from src.core.config import V8Config
 

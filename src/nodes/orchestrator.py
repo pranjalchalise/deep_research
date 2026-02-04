@@ -1,11 +1,7 @@
-# src/nodes/orchestrator.py
 """
-Multi-agent orchestration nodes for v8.
-
-Implements the Anthropic-style orchestrator-worker pattern:
-- orchestrator_node: Lead agent that assigns questions to subagents
-- subagent_node: Worker agent that independently researches assigned question
-- synthesizer_node: Combines findings from all subagents
+Orchestrator-worker pattern: a lead agent assigns research questions to
+parallel subagents, each independently searches and extracts evidence,
+then a synthesizer merges everything for gap detection.
 """
 from __future__ import annotations
 
@@ -31,10 +27,6 @@ from src.utils.json_utils import parse_json_object, parse_json_array
 from src.utils.llm import create_chat_model
 from src.utils.optimization import deduplicate_queries, deduplicate_query_items
 
-
-# ============================================================================
-# ORCHESTRATOR NODE
-# ============================================================================
 
 ORCHESTRATOR_SYSTEM = """You are a research orchestrator that coordinates a team of research subagents.
 
@@ -63,15 +55,7 @@ Return JSON:
 
 
 def orchestrator_node(state: AgentState) -> Dict[str, Any]:
-    """
-    Lead agent that coordinates subagents.
-
-    Responsibilities:
-    1. Analyze the research plan
-    2. Assign questions to subagents (with query deduplication)
-    3. Track overall progress
-    4. Decide when to stop or continue
-    """
+    """Assign research questions to subagents with query deduplication."""
     cfg = V8Config()
     plan = state.get("plan") or {}
     research_tree = plan.get("research_tree") or {}
@@ -80,18 +64,14 @@ def orchestrator_node(state: AgentState) -> Dict[str, Any]:
     refinement_queries = state.get("refinement_queries") or []
     current_iteration = state.get("research_iteration", 0)
 
-    # Check if we have refinement queries from gap detection
     if refinement_queries:
         # Create assignments from refinement queries
         assignments = _create_assignments_from_refinement(refinement_queries, primary_anchor)
     elif research_tree:
-        # First iteration - use research tree
         assignments = _create_assignments_from_tree(research_tree, primary_anchor, anchor_terms)
     else:
-        # Fallback - use plan queries
         assignments = _create_assignments_from_plan(plan, primary_anchor, anchor_terms)
 
-    # === OPTIMIZATION: Query deduplication across all assignments ===
     total_queries_before = 0
     total_queries_after = 0
 
@@ -100,15 +80,12 @@ def orchestrator_node(state: AgentState) -> Dict[str, Any]:
             queries = assignment.get("queries", [])
             total_queries_before += len(queries)
 
-            # Deduplicate queries within each assignment
             deduped, _ = deduplicate_queries(queries, cfg.query_similarity_threshold)
             assignment["queries"] = deduped
             total_queries_after += len(deduped)
 
-        # Also deduplicate across assignments (remove redundant subagents)
         assignments = _deduplicate_assignments(assignments, cfg.query_similarity_threshold)
 
-    # Limit to max subagents
     max_subagents = state.get("max_subagents", cfg.max_subagents)
     assignments = assignments[:max_subagents]
 
@@ -119,7 +96,6 @@ def orchestrator_node(state: AgentState) -> Dict[str, Any]:
         "overall_confidence": state.get("overall_confidence", 0.0),
     }
 
-    # Track deduplication stats
     dedup_stats = {
         "queries_before": total_queries_before,
         "queries_after": total_queries_after,
@@ -140,10 +116,7 @@ def _deduplicate_assignments(
     assignments: List[SubagentAssignment],
     threshold: float = 0.85
 ) -> List[SubagentAssignment]:
-    """
-    Deduplicate assignments that have very similar questions.
-    Merges queries from duplicate assignments into the kept one.
-    """
+    """Remove near-duplicate assignments, merging their queries into the kept one."""
     if len(assignments) <= 1:
         return assignments
 
@@ -179,7 +152,6 @@ def _create_assignments_from_refinement(
     primary_anchor: str
 ) -> List[SubagentAssignment]:
     """Create subagent assignments from refinement queries."""
-    # Group queries by section
     section_queries: Dict[str, List[str]] = {}
     for q in refinement_queries:
         section = q.get("section", "General")
@@ -209,12 +181,10 @@ def _create_assignments_from_tree(
     """Create subagent assignments from research tree."""
     assignments = []
 
-    # Primary questions first
     primary_questions = research_tree.get("primary", [])
     for i, q in enumerate(primary_questions[:4]):
         queries = q.get("queries", [])
 
-        # Ensure primary anchor in all queries
         for j, query in enumerate(queries):
             if primary_anchor and primary_anchor.lower() not in query.lower():
                 queries[j] = f'"{primary_anchor}" {query}'
@@ -226,7 +196,6 @@ def _create_assignments_from_tree(
             "target_sources": q.get("target_sources", ["general"]),
         })
 
-    # Add one secondary question if space
     secondary_questions = research_tree.get("secondary", [])
     if len(assignments) < 5 and secondary_questions:
         q = secondary_questions[0]
@@ -254,7 +223,6 @@ def _create_assignments_from_plan(
     queries = plan.get("queries", [])
     outline = plan.get("outline", [])
 
-    # Group queries by section
     section_queries: Dict[str, List[str]] = {}
     for q in queries:
         section = q.get("section", "General")
@@ -289,10 +257,6 @@ def fanout_subagents(state: AgentState):
     ]
 
 
-# ============================================================================
-# SUBAGENT NODE
-# ============================================================================
-
 EXTRACT_SYSTEM = """You extract concise, high-signal evidence from source content.
 
 Given the content from a web page and the research question, extract 2-4 evidence items.
@@ -323,18 +287,12 @@ Return a plain text summary (not JSON).
 
 
 def subagent_node(state: AgentState) -> Dict[str, Any]:
-    """
-    Subagent that independently researches assigned question.
-
-    Can do multiple searches, read pages, and refine queries
-    before returning findings to orchestrator.
-    """
+    """Independently research an assigned question with iterative search and extraction."""
     assignment: SubagentAssignment = state["subagent_assignment"]
     subagent_id = assignment.get("subagent_id", "SA?")
     question = assignment.get("question", "")
     queries = assignment.get("queries", [])
 
-    # Config from state
     use_cache = state.get("use_cache", True)
     cache_dir = state.get("cache_dir")
     timeout_s = state.get("request_timeout_s", 15.0)
@@ -344,14 +302,12 @@ def subagent_node(state: AgentState) -> Dict[str, Any]:
     evidence_per_source = state.get("evidence_per_source", 3)
     max_iterations = state.get("subagent_max_iterations", 2)
 
-    # Entity info for relevance filtering
     primary_anchor = state.get("primary_anchor", "")
     anchor_terms = state.get("anchor_terms") or []
     query_type = (state.get("discovery") or {}).get("query_type", "general")
 
     llm = create_chat_model(model="gpt-4o-mini", temperature=0.1)
 
-    # Iterative research within subagent
     all_evidence: List[RawEvidence] = []
     all_sources: List[RawSource] = []
     dead_ends: List[DeadEnd] = []
@@ -359,7 +315,6 @@ def subagent_node(state: AgentState) -> Dict[str, Any]:
 
     for iteration in range(max_iterations):
         for query in queries:
-            # Search
             results = cached_search(
                 query=query,
                 max_results=6,
@@ -377,7 +332,6 @@ def subagent_node(state: AgentState) -> Dict[str, Any]:
                 })
                 continue
 
-            # Add to sources
             for r in results:
                 all_sources.append({
                     "url": r["url"],
@@ -385,7 +339,6 @@ def subagent_node(state: AgentState) -> Dict[str, Any]:
                     "snippet": r.get("snippet", "")[:700],
                 })
 
-            # Fetch top 2 pages
             for r in results[:2]:
                 url = r["url"]
                 title = r["title"]
@@ -404,7 +357,6 @@ def subagent_node(state: AgentState) -> Dict[str, Any]:
                 )
 
                 if chunks:
-                    # Extract evidence
                     evidence = _extract_evidence(
                         llm=llm,
                         url=url,
@@ -415,17 +367,14 @@ def subagent_node(state: AgentState) -> Dict[str, Any]:
                     )
                     all_evidence.extend(evidence)
 
-        # Assess confidence
         confidence = _assess_subagent_confidence(question, all_evidence)
 
         if confidence >= 0.8:
-            break  # Sufficient for this question
+            break
 
-        # Generate refined queries for next iteration
         if iteration < max_iterations - 1 and confidence < 0.7:
             queries = _refine_subagent_queries(question, all_evidence, primary_anchor)
 
-    # Compress findings for orchestrator
     compressed_findings = _compress_findings(llm, question, all_evidence)
 
     findings: SubagentFindings = {
@@ -492,11 +441,9 @@ def _assess_subagent_confidence(question: str, evidence: List[RawEvidence]) -> f
     if not evidence:
         return 0.0
 
-    # Simple heuristic based on evidence count and length
     evidence_count = len(evidence)
     avg_length = sum(len(e.get("text", "")) for e in evidence) / max(evidence_count, 1)
 
-    # Score based on evidence quantity and quality
     count_score = min(1.0, evidence_count / 4)
     length_score = min(1.0, avg_length / 200)
 
@@ -509,14 +456,12 @@ def _refine_subagent_queries(
     primary_anchor: str
 ) -> List[str]:
     """Generate refined queries based on what we learned."""
-    # Simple refinement: if we have some evidence, look for more specific info
     if evidence:
         return [
             f'"{primary_anchor}" {question.split()[-2:]}',  # Last words of question
             f'"{primary_anchor}" details specific',
         ]
     else:
-        # No evidence - broaden search
         return [
             f'{primary_anchor} {question}',
             f'"{primary_anchor}" profile',
@@ -539,50 +484,34 @@ def _compress_findings(llm: Any, question: str, evidence: List[RawEvidence]) -> 
     return resp.content.strip()[:500]
 
 
-# ============================================================================
-# SYNTHESIZER NODE
-# ============================================================================
-
 def synthesizer_node(state: AgentState) -> Dict[str, Any]:
-    """
-    Combines findings from all subagents.
-
-    Waits for all subagents to complete, then:
-    1. Aggregates all evidence
-    2. Updates orchestrator state
-    3. Prepares for gap detection
-    """
+    """Merge subagent findings once all workers are done."""
     total_workers = state.get("total_workers", 0)
     done_workers = state.get("done_workers", 0)
 
-    # Not ready yet
     if done_workers < total_workers:
         return {}
 
     subagent_findings = state.get("subagent_findings") or []
     orchestrator_state = state.get("orchestrator_state") or {}
 
-    # Calculate overall confidence from subagents
     if subagent_findings:
         confidences = [f.get("confidence", 0) for f in subagent_findings]
         avg_confidence = sum(confidences) / len(confidences)
     else:
         avg_confidence = 0.0
 
-    # Collect all dead ends from subagents
     all_dead_ends: List[DeadEnd] = state.get("dead_ends") or []
     for finding in subagent_findings:
         for de in finding.get("dead_ends", []):
             all_dead_ends.append(de)
 
-    # Update orchestrator state
     updated_orchestrator: OrchestratorState = {
         **orchestrator_state,
         "questions_completed": len(subagent_findings),
         "overall_confidence": avg_confidence,
     }
 
-    # Add trajectory step
     trajectory = state.get("research_trajectory") or []
     trajectory_step: TrajectoryStep = {
         "iteration": state.get("research_iteration", 0),

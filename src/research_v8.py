@@ -1,15 +1,7 @@
-# src/research_v8.py
 """
-Research Studio v8 - Deep Research Agent
-
-Features:
-- Multi-agent orchestration (orchestrator-worker pattern)
-- Iterative research with automatic gap detection
-- Backtracking on dead ends
-- E-E-A-T source credibility scoring
-- Span-level citation verification
-- Cross-validation of claims
-- Per-claim confidence scoring with indicators (✓✓, ✓, ⚠)
+CLI entry point for v8 of the research agent. Handles argument parsing,
+graph construction (with or without human-in-the-loop clarification),
+and progress reporting. The actual research logic lives in src/core/graph.
 """
 from __future__ import annotations
 
@@ -27,12 +19,10 @@ from src.core.config import V8Config
 
 
 def get_state_value(state: dict, key: str, default=None):
-    """Safely get a value from state."""
     return state.get(key, default)
 
 
 def format_progress_bar(current: int, total: int, width: int = 30) -> str:
-    """Format a simple progress bar."""
     if total == 0:
         return "[" + " " * width + "]"
     filled = int(width * current / total)
@@ -41,7 +31,6 @@ def format_progress_bar(current: int, total: int, width: int = 30) -> str:
 
 
 def print_research_metadata(metadata: Dict[str, Any]) -> None:
-    """Print research quality metadata."""
     print("\n" + "-" * 60)
     print("RESEARCH QUALITY METRICS")
     print("-" * 60)
@@ -60,7 +49,6 @@ def print_research_metadata(metadata: Dict[str, Any]) -> None:
 
 
 def print_subagent_progress(state: Dict) -> None:
-    """Print multi-agent progress."""
     assignments = state.get("subagent_assignments") or []
     findings = state.get("subagent_findings") or []
 
@@ -83,18 +71,8 @@ def run_research_v8(
     use_multi_agent: bool = True,
     verbose: bool = True,
 ) -> str:
-    """
-    Run the v8 research pipeline with multi-agent orchestration.
-
-    Args:
-        question: The research question
-        skip_clarification: If True, skip human clarification (auto-proceed)
-        use_multi_agent: If True, use orchestrator-worker pattern
-        verbose: If True, print progress updates
-
-    Returns:
-        The generated research report
-    """
+    """Build and invoke the LangGraph research pipeline, optionally
+    pausing for human clarification. Returns the final report text."""
     cfg = V8Config()
     start_time = time.time()
 
@@ -110,7 +88,6 @@ def run_research_v8(
         thread_id = str(uuid.uuid4())
         config = {"configurable": {"thread_id": thread_id}}
 
-    # Initialize state with v8 config
     init = {
         "messages": [HumanMessage(content=question)],
         "original_query": question,
@@ -129,7 +106,6 @@ def run_research_v8(
         "request_timeout_s": cfg.request_timeout_s,
         "cache_dir": cfg.cache_dir,
         "use_cache": cfg.use_cache,
-        # v8 specific config
         "max_research_iterations": cfg.max_research_iterations,
         "min_confidence_to_proceed": cfg.min_confidence_to_proceed,
         "enable_backtracking": cfg.enable_backtracking,
@@ -154,13 +130,12 @@ def run_research_v8(
         print(f"Mode: {mode} | Max Iterations: {cfg.max_research_iterations}")
         print("\n[1/7] Analyzing query...")
 
-    # First invocation
     if skip_clarification:
         result = app.invoke(init)
     else:
         result = app.invoke(init, config)
 
-    # Check if we hit the interrupt (needs clarification)
+    # If the graph paused at the clarify node, prompt the user and resume
     if not skip_clarification:
         snapshot = app.get_state(config)
 
@@ -209,7 +184,6 @@ def run_research_v8(
         print("[4/7] Planning research strategy...")
         print("[5/7] Conducting multi-agent research...")
 
-        # Show intermediate progress if available
         if not skip_clarification:
             try:
                 interim_state = app.get_state(config)
@@ -221,7 +195,6 @@ def run_research_v8(
         print("[6/7] Verifying sources and claims...")
         print("[7/7] Generating report...\n")
 
-    # Get final result
     if skip_clarification:
         report = result.get("report", "")
         metadata = result.get("research_metadata", {})
@@ -234,7 +207,6 @@ def run_research_v8(
         if not report and final_state.values.get("messages"):
             report = final_state.values["messages"][-1].content
 
-    # Add elapsed time to metadata
     elapsed = time.time() - start_time
     metadata["time_elapsed_seconds"] = elapsed
 
@@ -254,7 +226,6 @@ def run_research_v8(
 
 
 def main():
-    """Main entry point for v8 research."""
     load_dotenv()
 
     if not os.getenv("OPENAI_API_KEY"):
@@ -262,7 +233,6 @@ def main():
     if not os.getenv("TAVILY_API_KEY"):
         raise RuntimeError("Missing TAVILY_API_KEY in .env")
 
-    # Parse command line arguments
     args = sys.argv[1:]
     skip_clarification = False
     use_multi_agent = True
@@ -294,7 +264,6 @@ Examples:
 """)
         return
 
-    # Get question from args or prompt
     if args:
         question = " ".join(args)
     else:

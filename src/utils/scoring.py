@@ -1,3 +1,10 @@
+"""
+Heuristic quality scoring for search results.
+
+Combines domain reputation, lane alignment, recency, and SEO penalties
+into a 0-1 score that the ranker uses to prioritize which sources to
+actually fetch and read.
+"""
 from __future__ import annotations
 
 from urllib.parse import urlparse
@@ -31,9 +38,9 @@ def _domain(url: str) -> str:
         return ""
 
 def parse_date(d: str) -> Optional[datetime]:
+    """Best-effort date parsing for the inconsistent formats Tavily returns."""
     if not d:
         return None
-    # tavily sometimes returns ISO-ish date strings
     for fmt in ("%Y-%m-%d", "%Y-%m-%dT%H:%M:%S", "%Y-%m-%dT%H:%M:%S%z"):
         try:
             return datetime.strptime(d[:len(fmt)], fmt)
@@ -66,10 +73,7 @@ def lane_bonus(domain: str, lane: str) -> float:
     return 0.0
 
 def quality_score(url: str, title: str, snippet: str, lane: str, published_date: str = "") -> float:
-    """
-    Score in [0, 1] (clamped).
-    Heuristic: primary sources + lane alignment + recency; penalize SEO content.
-    """
+    """Return a 0-1 heuristic quality score based on domain trust, lane fit, and recency."""
     domain = _domain(url)
     score = 0.50  # base
 
@@ -86,13 +90,11 @@ def quality_score(url: str, title: str, snippet: str, lane: str, published_date:
     score += lane_bonus(domain, lane)
     score += recency_score(published_date)
 
-    # tiny boosts
     if "pdf" in url.lower():
         score += 0.03
     if "documentation" in (title or "").lower():
         score += 0.03
 
-    # clamp
     if score < 0.0:
         score = 0.0
     if score > 1.0:

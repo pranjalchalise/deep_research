@@ -1,20 +1,15 @@
 # src/core/graph.py
 """
-LangGraph state machine for the research pipeline.
+LangGraph state machine for v8 research pipeline.
 
-Features:
-- Human-in-the-loop disambiguation via interrupt
-- Discovery phase for entity identification
-- Parallel search workers with full page fetching
-- Trust engine (claims → cite → verify)
+This builds the graph that research_v8.py runs. It wires together all the
+nodes (discovery, planning, multi-agent orchestration, trust engine, etc.)
+into a single compiled LangGraph.
 
-v8 Features:
-- Orchestrator-worker multi-agent pattern
-- Iterative research with gap detection
-- Backtracking on dead ends
-- E-E-A-T source credibility scoring
-- Span verification and cross-validation
-- Per-claim confidence scoring
+Three graph variants:
+  - build_v8_graph:           Full multi-agent with gap detection + backtracking
+  - build_v8_optimized_graph: Same but with batched trust engine + complexity routing
+  - Each has _with_memory (for HITL) and _simple (no interrupt) helpers
 """
 from __future__ import annotations
 
@@ -25,8 +20,9 @@ from langgraph.types import Send
 from langgraph.checkpoint.memory import MemorySaver
 
 from src.core.state import AgentState
+from src.core.config import V8Config
 
-# === Discovery Phase ===
+# -- Discovery phase: analyze query, identify entities, ask for clarification --
 from src.nodes.discovery import (
     analyzer_node,
     discovery_node,
@@ -34,19 +30,18 @@ from src.nodes.discovery import (
     route_after_discovery,
 )
 
-# === v7 nodes (kept for backwards compatibility) ===
-from src.nodes.planner import planner_node
+# -- Shared nodes used by v8 in both multi-agent and fallback single-agent modes --
 from src.nodes.search_worker import worker_node
 from src.nodes.reducer import reducer_node
 from src.nodes.ranker import ranker_node
 from src.nodes.claims import claims_node
 from src.nodes.cite import cite_node
-from src.nodes.verify import verify_node
-from src.nodes.writer import writer_node
 
-# === v8 nodes ===
+# -- v8 planning and writing --
 from src.nodes.planner_v8 import planner_node_v8
 from src.nodes.writer_v8 import writer_node_v8
+
+# -- v8 iterative research: confidence checks, gap detection, backtracking --
 from src.nodes.iterative import (
     confidence_check_node,
     auto_refine_node,
@@ -54,7 +49,13 @@ from src.nodes.iterative import (
     backtrack_handler_node,
     route_after_confidence,
     route_after_gaps,
+    complexity_router_node,
+    early_termination_check_node,
+    route_by_complexity,
+    route_after_termination_check,
 )
+
+# -- v8 multi-agent orchestration: break query into sub-tasks, fan out, synthesize --
 from src.nodes.orchestrator import (
     orchestrator_node,
     subagent_node,
@@ -62,6 +63,8 @@ from src.nodes.orchestrator import (
     fanout_subagents,
     route_after_synthesis,
 )
+
+# -- v8 trust engine: source credibility, span verification, cross-validation --
 from src.nodes.trust_engine import (
     credibility_scorer_node,
     span_verify_node,
@@ -69,135 +72,11 @@ from src.nodes.trust_engine import (
     claim_confidence_scorer_node,
 )
 
-# === v8 optimized nodes ===
+# -- v8 batched trust engine: fewer LLM calls by combining credibility+claims, verify+cross --
 from src.nodes.trust_engine_batched import (
     batched_credibility_claims_node,
     batched_verification_node,
 )
-from src.nodes.iterative import (
-    complexity_router_node,
-    early_termination_check_node,
-    route_by_complexity,
-    route_after_termination_check,
-)
-from src.core.config import V8Config
-
-
-def fanout_workers(state: AgentState):
-    """Fan out to parallel search workers based on plan queries."""
-    plan = state.get("plan") or {}
-    queries = plan.get("queries") or []
-    return [Send("worker", {"query_item": qi}) for qi in queries]
-
-
-def route_after_reduce(state: AgentState) -> str:
-    """Route after reduce - proceed to ranker when all workers done."""
-    total = state.get("total_workers") or 0
-    done = state.get("done_workers") or 0
-    return "ranker" if done >= total else END
-
-
-def build_graph(checkpointer: Optional[MemorySaver] = None, interrupt_on_clarify: bool = True):
-    """
-    Build the research pipeline graph.
-
-    Args:
-        checkpointer: Optional checkpointer for state persistence (required for interrupt)
-        interrupt_on_clarify: Whether to interrupt for human clarification (default: True)
-
-    Returns:
-        Compiled LangGraph
-    """
-    g = StateGraph(AgentState)
-
-    # === Discovery Phase (NEW) ===
-    g.add_node("analyzer", analyzer_node)
-    g.add_node("discovery", discovery_node)
-    g.add_node("clarify", clarify_node)
-
-    # === Research Phase ===
-    g.add_node("planner", planner_node)
-    g.add_node("worker", worker_node)
-    g.add_node("reduce", reducer_node)
-    g.add_node("ranker", ranker_node)
-
-    # === Trust Engine ===
-    g.add_node("claims", claims_node)
-    g.add_node("cite", cite_node)
-    g.add_node("verify", verify_node)
-    g.add_node("write", writer_node)
-
-    # === Edges ===
-
-    # Start with analysis
-    g.add_edge(START, "analyzer")
-    g.add_edge("analyzer", "discovery")
-
-    # After discovery, route based on confidence
-    g.add_conditional_edges(
-        "discovery",
-        route_after_discovery,
-        {
-            "clarify": "clarify",
-            "planner": "planner",
-        }
-    )
-
-    # After clarification, proceed to planning
-    g.add_edge("clarify", "planner")
-
-    # Planning fans out to workers
-    g.add_conditional_edges("planner", fanout_workers)
-
-    # Workers feed into reducer
-    g.add_edge("worker", "reduce")
-
-    # After reduce, proceed to ranker
-    g.add_conditional_edges("reduce", route_after_reduce)
-
-    # Ranker filters sources then proceeds to trust engine
-    g.add_edge("ranker", "claims")
-
-    # Trust engine pipeline
-    g.add_edge("claims", "cite")
-    g.add_edge("cite", "verify")
-    g.add_edge("verify", "write")
-    g.add_edge("write", END)
-
-    # Compile with optional interrupt
-    compile_kwargs = {}
-
-    if checkpointer:
-        compile_kwargs["checkpointer"] = checkpointer
-
-    if interrupt_on_clarify:
-        # Interrupt BEFORE clarify node to get human input
-        compile_kwargs["interrupt_before"] = ["clarify"]
-
-    return g.compile(**compile_kwargs)
-
-
-def build_graph_with_memory(interrupt_on_clarify: bool = True):
-    """
-    Build graph with in-memory checkpointer (for human-in-the-loop).
-
-    Returns:
-        Tuple of (compiled_graph, checkpointer)
-    """
-    checkpointer = MemorySaver()
-    graph = build_graph(checkpointer=checkpointer, interrupt_on_clarify=interrupt_on_clarify)
-    return graph, checkpointer
-
-
-# === Convenience function for simple usage (no interrupt) ===
-
-def build_simple_graph():
-    """
-    Build graph without human-in-the-loop (auto-proceeds on low confidence).
-
-    Use this for automated pipelines that shouldn't wait for human input.
-    """
-    return build_graph(checkpointer=None, interrupt_on_clarify=False)
 
 
 # ============================================================================
@@ -205,21 +84,21 @@ def build_simple_graph():
 # ============================================================================
 
 def fanout_workers_v8(state: AgentState):
-    """Fan out to parallel search workers (v8 - only used in fallback mode)."""
+    """Send each planned query to a parallel worker node (single-agent fallback)."""
     plan = state.get("plan") or {}
     queries = plan.get("queries") or []
     return [Send("worker", {"query_item": qi}) for qi in queries]
 
 
 def route_after_reduce_v8(state: AgentState) -> str:
-    """Route after reduce - proceed to credibility when all workers done."""
+    """Wait for all workers to finish, then move to credibility scoring."""
     total = state.get("total_workers") or 0
     done = state.get("done_workers") or 0
     return "credibility" if done >= total else END
 
 
 def route_after_backtrack(state: AgentState) -> str:
-    """Route after backtrack - go to orchestrator for next iteration."""
+    """After handling a dead end, send the query back to the orchestrator."""
     return "orchestrator"
 
 
@@ -229,90 +108,42 @@ def build_v8_graph(
     use_multi_agent: bool = True,
 ):
     """
-    Build the v8 research pipeline graph with multi-agent orchestration.
+    Build the full v8 research pipeline as a LangGraph.
 
-    Architecture:
-    ```
-    START → Analyzer → Discovery → Confidence Check
-                                        ↓
-                    ┌───────────────────┼───────────────────┐
-                    ↓                   ↓                   ↓
-                Clarify            Auto Refine          Planner
-                    │                   │                   │
-                    └───────────────────┴───────────────────┘
-                                        ↓
-                                   Orchestrator
-                                        ↓
-                    ┌─────────────┬─────┴─────┬─────────────┐
-                    ↓             ↓           ↓             ↓
-                Subagent 1   Subagent 2  Subagent 3   Subagent N
-                    │             │           │             │
-                    └─────────────┴─────┬─────┴─────────────┘
-                                        ↓
-                                   Synthesizer
-                                        ↓
-                                   Gap Detector
-                                        ↓
-                    ┌───────────────────┼───────────────────┐
-                    ↓                   ↓                   ↓
-                Backtrack          Orchestrator          Reduce
-               (dead ends)        (more research)      (sufficient)
-                    │                   │                   │
-                    └───────────────────┤                   │
-                                        │                   ↓
-                                        │              Credibility
-                                        │                   ↓
-                                        │               Ranker
-                                        │                   ↓
-                                        │               Claims
-                                        │                   ↓
-                                        │                Cite
-                                        │                   ↓
-                                        │            Span Verify
-                                        │                   ↓
-                                        │          Cross Validate
-                                        │                   ↓
-                                        │         Confidence Score
-                                        │                   ↓
-                                        └───────────────→ Writer
-                                                            ↓
-                                                           END
-    ```
+    Flow:
+      Analyzer → Discovery → Confidence Check → Clarify/Refine? → Planner
+        → Orchestrator → [Subagents in parallel] → Synthesizer
+        → Gap Detector → (loop or proceed) → Reduce → Trust Engine → Writer
 
-    Args:
-        checkpointer: Optional checkpointer for state persistence
-        interrupt_on_clarify: Whether to interrupt for human clarification
-        use_multi_agent: Whether to use orchestrator-worker pattern (default: True)
-
-    Returns:
-        Compiled LangGraph
+    If use_multi_agent=False, falls back to single-agent workers instead
+    of the orchestrator-subagent pattern.
     """
     g = StateGraph(AgentState)
 
-    # === Discovery Phase ===
+    # -- Discovery: figure out what the query is about --
     g.add_node("analyzer", analyzer_node)
     g.add_node("discovery", discovery_node)
     g.add_node("confidence_check", confidence_check_node)
     g.add_node("clarify", clarify_node)
     g.add_node("auto_refine", auto_refine_node)
 
-    # === Planning Phase ===
+    # -- Planning: decide what to search for --
     g.add_node("planner", planner_node_v8)
 
-    # === Multi-Agent Research Phase ===
+    # -- Multi-agent research: orchestrator breaks query, subagents research in parallel --
     g.add_node("orchestrator", orchestrator_node)
     g.add_node("subagent", subagent_node)
     g.add_node("synthesizer", synthesizer_node)
 
-    # === Iterative Research ===
+    # -- Iterative loop: detect gaps, backtrack on dead ends --
     g.add_node("gap_detector", gap_detector_node)
     g.add_node("backtrack", backtrack_handler_node)
 
-    # === Fallback: Single-agent workers (when multi-agent disabled) ===
+    # -- Single-agent fallback (when multi-agent is disabled) --
     g.add_node("worker", worker_node)
     g.add_node("reduce", reducer_node)
 
-    # === Trust Engine ===
+    # -- Trust engine: score credibility, extract claims, verify, cross-validate --
     g.add_node("credibility", credibility_scorer_node)
     g.add_node("ranker", ranker_node)
     g.add_node("claims", claims_node)
@@ -322,102 +153,49 @@ def build_v8_graph(
     g.add_node("confidence_score", claim_confidence_scorer_node)
     g.add_node("write", writer_node_v8)
 
-    # ========================================================================
-    # EDGES
-    # ========================================================================
-
-    # --- Discovery Flow ---
+    # -- Edges: discovery flow --
     g.add_edge(START, "analyzer")
     g.add_edge("analyzer", "discovery")
     g.add_edge("discovery", "confidence_check")
 
-    # Route based on confidence level
     g.add_conditional_edges(
         "confidence_check",
         route_after_confidence,
-        {
-            "clarify": "clarify",
-            "auto_refine": "auto_refine",
-            "planner": "planner",
-        }
+        {"clarify": "clarify", "auto_refine": "auto_refine", "planner": "planner"},
     )
-
-    # After clarification or auto-refine, go to planner
     g.add_edge("clarify", "planner")
-
-    # Auto-refine routes back to confidence check or proceeds
     g.add_conditional_edges(
         "auto_refine",
         route_after_confidence,
-        {
-            "clarify": "clarify",
-            "planner": "planner",
-            "auto_refine": "auto_refine",  # Can loop for more refinement
-        }
+        {"clarify": "clarify", "planner": "planner", "auto_refine": "auto_refine"},
     )
 
-    # --- Research Flow (Multi-Agent vs Single-Agent) ---
+    # -- Edges: research flow --
     if use_multi_agent:
-        # Planner → Orchestrator
         g.add_edge("planner", "orchestrator")
-
-        # Orchestrator fans out to parallel subagents
         g.add_conditional_edges("orchestrator", fanout_subagents)
-
-        # Subagents feed into synthesizer
         g.add_edge("subagent", "synthesizer")
-
-        # Synthesizer → Gap Detector
         g.add_conditional_edges(
-            "synthesizer",
-            route_after_synthesis,
-            {
-                "gap_detector": "gap_detector",
-            }
+            "synthesizer", route_after_synthesis, {"gap_detector": "gap_detector"},
         )
-
-        # Gap detector decides: continue research, backtrack, or proceed
         g.add_conditional_edges(
-            "gap_detector",
-            route_after_gaps,
-            {
-                "orchestrator": "orchestrator",  # More research needed
-                "backtrack": "backtrack",        # Handle dead ends
-                "reduce": "reduce",              # Sufficient coverage
-            }
+            "gap_detector", route_after_gaps,
+            {"orchestrator": "orchestrator", "backtrack": "backtrack", "reduce": "reduce"},
         )
-
-        # Backtrack → Orchestrator (try alternative approaches)
         g.add_conditional_edges(
-            "backtrack",
-            route_after_backtrack,
-            {
-                "orchestrator": "orchestrator",
-            }
+            "backtrack", route_after_backtrack, {"orchestrator": "orchestrator"},
         )
-
-        # Reduce collects all evidence → Credibility
         g.add_conditional_edges(
-            "reduce",
-            route_after_reduce_v8,
-            {
-                "credibility": "credibility",
-            }
+            "reduce", route_after_reduce_v8, {"credibility": "credibility"},
         )
-
     else:
-        # Fallback: Single-agent mode (like v7)
         g.add_conditional_edges("planner", fanout_workers_v8)
         g.add_edge("worker", "reduce")
         g.add_conditional_edges(
-            "reduce",
-            route_after_reduce_v8,
-            {
-                "credibility": "credibility",
-            }
+            "reduce", route_after_reduce_v8, {"credibility": "credibility"},
         )
 
-    # --- Trust Engine Flow ---
+    # -- Edges: trust engine pipeline --
     g.add_edge("credibility", "ranker")
     g.add_edge("ranker", "claims")
     g.add_edge("claims", "cite")
@@ -427,31 +205,18 @@ def build_v8_graph(
     g.add_edge("confidence_score", "write")
     g.add_edge("write", END)
 
-    # ========================================================================
-    # COMPILE
-    # ========================================================================
-
+    # -- Compile --
     compile_kwargs = {}
-
     if checkpointer:
         compile_kwargs["checkpointer"] = checkpointer
-
     if interrupt_on_clarify:
         compile_kwargs["interrupt_before"] = ["clarify"]
 
     return g.compile(**compile_kwargs)
 
 
-def build_v8_graph_with_memory(
-    interrupt_on_clarify: bool = True,
-    use_multi_agent: bool = True,
-):
-    """
-    Build v8 graph with in-memory checkpointer (for human-in-the-loop).
-
-    Returns:
-        Tuple of (compiled_graph, checkpointer)
-    """
+def build_v8_graph_with_memory(interrupt_on_clarify: bool = True, use_multi_agent: bool = True):
+    """Build v8 graph with in-memory checkpointer for human-in-the-loop."""
     checkpointer = MemorySaver()
     graph = build_v8_graph(
         checkpointer=checkpointer,
@@ -462,24 +227,20 @@ def build_v8_graph_with_memory(
 
 
 def build_v8_simple_graph(use_multi_agent: bool = True):
-    """
-    Build v8 graph without human-in-the-loop.
-
-    Use this for automated pipelines that shouldn't wait for human input.
-    """
+    """Build v8 graph without HITL interrupt (for automated pipelines)."""
     return build_v8_graph(
-        checkpointer=None,
-        interrupt_on_clarify=False,
-        use_multi_agent=use_multi_agent,
+        checkpointer=None, interrupt_on_clarify=False, use_multi_agent=use_multi_agent,
     )
 
 
 # ============================================================================
-# V8 OPTIMIZED GRAPH - Reduced LLM calls, complexity routing, batched ops
+# OPTIMIZED V8 GRAPH
+# Same pipeline but with batched trust engine (fewer LLM calls) and
+# complexity-based routing (simple queries skip multi-agent overhead).
 # ============================================================================
 
 def route_after_reduce_optimized(state: AgentState) -> str:
-    """Route after reduce - proceed to batched trust when all workers done."""
+    """Wait for all workers, then move to the batched trust engine."""
     total = state.get("total_workers") or 0
     done = state.get("done_workers") or 0
     return "batched_trust" if done >= total else END
@@ -491,232 +252,115 @@ def build_v8_optimized_graph(
     use_multi_agent: bool = True,
 ):
     """
-    Build the OPTIMIZED v8 research pipeline graph.
+    Build the optimized v8 pipeline.
 
-    Optimizations applied:
-    1. Query deduplication in orchestrator (~30% fewer Tavily calls)
-    2. Batched trust engine (5 nodes → 2 nodes, ~60% fewer trust LLM calls)
-    3. Complexity routing (simple queries skip multi-agent)
-    4. Early termination on diminishing returns
-    5. Model tiering (gpt-4o-mini for simple tasks)
-
-    Architecture (Optimized):
-    ```
-    START → Analyzer → Discovery → Complexity Router
-                                        ↓
-                    ┌───────────────────┼───────────────────┐
-                    ↓                   ↓                   ↓
-              Fast Path           Standard Path         Deep Path
-            (simple queries)    (medium queries)    (complex queries)
-                    │                   │                   │
-                    ↓                   ↓                   ↓
-                Planner             Planner            Planner
-                    │                   │                   │
-                    ↓                   ↓                   ↓
-               [Workers]          Orchestrator        Orchestrator
-                    │            (2 subagents)       (3 subagents)
-                    │                   │                   │
-                    └───────────────────┼───────────────────┘
-                                        ↓
-                                     Reduce
-                                        ↓
-                          ┌─────────────┴─────────────┐
-                          ↓                           ↓
-                  Batched Credibility          (Early Termination
-                     + Claims                     Check)
-                          │
-                          ↓
-                   Batched Verify
-                  + Cross-Validate
-                   + Confidence
-                          │
-                          ↓
-                       Writer
-                          ↓
-                        END
-    ```
-
-    Node reduction: 19 nodes → 12 nodes
-    LLM call reduction: ~32 calls → ~20 calls
-    Tavily call reduction: ~18 searches → ~12 searches
-
-    Args:
-        checkpointer: Optional checkpointer for state persistence
-        interrupt_on_clarify: Whether to interrupt for human clarification
-        use_multi_agent: Whether to use orchestrator-worker pattern
-
-    Returns:
-        Compiled LangGraph
+    Differences from build_v8_graph:
+      - Complexity router skips multi-agent for simple queries
+      - Batched trust engine: credibility+claims in one LLM call,
+        verify+cross-validate+confidence in one LLM call
+      - Early termination when evidence stops improving
     """
-    cfg = V8Config()
     g = StateGraph(AgentState)
 
-    # === Discovery Phase ===
+    # -- Discovery --
     g.add_node("analyzer", analyzer_node)
     g.add_node("discovery", discovery_node)
     g.add_node("complexity_router", complexity_router_node)
     g.add_node("clarify", clarify_node)
     g.add_node("auto_refine", auto_refine_node)
 
-    # === Planning Phase ===
+    # -- Planning --
     g.add_node("planner", planner_node_v8)
 
-    # === Multi-Agent Research Phase ===
+    # -- Multi-agent research --
     g.add_node("orchestrator", orchestrator_node)
     g.add_node("subagent", subagent_node)
     g.add_node("synthesizer", synthesizer_node)
 
-    # === Iteration Control ===
+    # -- Iteration control --
     g.add_node("early_termination", early_termination_check_node)
     g.add_node("gap_detector", gap_detector_node)
     g.add_node("backtrack", backtrack_handler_node)
 
-    # === Single-agent fallback ===
+    # -- Single-agent fallback --
     g.add_node("worker", worker_node)
     g.add_node("reduce", reducer_node)
 
-    # === OPTIMIZED Trust Engine (Batched) ===
+    # -- Batched trust engine (the optimization) --
     g.add_node("batched_cred_claims", batched_credibility_claims_node)
     g.add_node("ranker", ranker_node)
     g.add_node("batched_verify", batched_verification_node)
     g.add_node("write", writer_node_v8)
 
-    # ========================================================================
-    # EDGES
-    # ========================================================================
-
-    # --- Discovery Flow ---
+    # -- Discovery edges --
     g.add_edge(START, "analyzer")
     g.add_edge("analyzer", "discovery")
     g.add_edge("discovery", "complexity_router")
 
-    # Route based on complexity
     def route_complexity_to_confidence(state: AgentState) -> str:
-        """Route from complexity router to confidence check or fast path."""
-        fast_path = state.get("_fast_path", False)
-        if fast_path:
-            # Simple queries: skip confidence check, go straight to planner
+        """Simple queries skip straight to planner; complex ones may need clarification."""
+        if state.get("_fast_path", False):
             return "planner"
-        # Standard/complex: do confidence check
         discovery = state.get("discovery") or {}
-        confidence = discovery.get("confidence", 0)
-        if confidence < 0.7:
-            return "clarify"
-        return "planner"
+        return "clarify" if discovery.get("confidence", 0) < 0.7 else "planner"
 
     g.add_conditional_edges(
-        "complexity_router",
-        route_complexity_to_confidence,
-        {
-            "clarify": "clarify",
-            "planner": "planner",
-        }
+        "complexity_router", route_complexity_to_confidence,
+        {"clarify": "clarify", "planner": "planner"},
     )
-
     g.add_edge("clarify", "planner")
     g.add_edge("auto_refine", "planner")
 
-    # --- Research Flow ---
+    # -- Research edges --
     if use_multi_agent:
         def route_planner_by_complexity(state: AgentState) -> str:
-            """Route based on query complexity."""
-            complexity = state.get("query_complexity", "medium")
-            if complexity == "simple":
-                # For simple queries, use single worker path
-                return "fast_workers"
-            return "orchestrator"
+            """Simple queries use single worker; medium/complex use orchestrator."""
+            return "fast_workers" if state.get("query_complexity", "medium") == "simple" else "orchestrator"
 
         g.add_conditional_edges(
-            "planner",
-            route_planner_by_complexity,
-            {
-                "fast_workers": "worker",
-                "orchestrator": "orchestrator",
-            }
+            "planner", route_planner_by_complexity,
+            {"fast_workers": "worker", "orchestrator": "orchestrator"},
         )
-
-        # Worker path (simple queries)
         g.add_edge("worker", "reduce")
-
-        # Orchestrator path (medium/complex)
         g.add_conditional_edges("orchestrator", fanout_subagents)
         g.add_edge("subagent", "synthesizer")
         g.add_edge("synthesizer", "early_termination")
-
-        # Early termination check
         g.add_conditional_edges(
-            "early_termination",
-            route_after_termination_check,
-            {
-                "reduce": "reduce",
-                "gap_detector": "gap_detector",
-            }
+            "early_termination", route_after_termination_check,
+            {"reduce": "reduce", "gap_detector": "gap_detector"},
         )
-
-        # Gap detector with iteration
         g.add_conditional_edges(
-            "gap_detector",
-            route_after_gaps,
-            {
-                "orchestrator": "orchestrator",
-                "backtrack": "backtrack",
-                "reduce": "reduce",
-            }
+            "gap_detector", route_after_gaps,
+            {"orchestrator": "orchestrator", "backtrack": "backtrack", "reduce": "reduce"},
         )
-
         g.add_conditional_edges(
-            "backtrack",
-            route_after_backtrack,
-            {
-                "orchestrator": "orchestrator",
-            }
+            "backtrack", route_after_backtrack, {"orchestrator": "orchestrator"},
         )
-
     else:
-        # Single-agent mode
         g.add_conditional_edges("planner", fanout_workers_v8)
         g.add_edge("worker", "reduce")
 
-    # --- OPTIMIZED Trust Engine Flow ---
+    # -- Batched trust engine edges --
     g.add_conditional_edges(
-        "reduce",
-        route_after_reduce_optimized,
-        {
-            "batched_trust": "batched_cred_claims",
-        }
+        "reduce", route_after_reduce_optimized, {"batched_trust": "batched_cred_claims"},
     )
-
-    # Batched flow: credibility+claims → ranker → verify+cross+confidence → write
     g.add_edge("batched_cred_claims", "ranker")
     g.add_edge("ranker", "batched_verify")
     g.add_edge("batched_verify", "write")
     g.add_edge("write", END)
 
-    # ========================================================================
-    # COMPILE
-    # ========================================================================
-
+    # -- Compile --
     compile_kwargs = {}
-
     if checkpointer:
         compile_kwargs["checkpointer"] = checkpointer
-
     if interrupt_on_clarify:
         compile_kwargs["interrupt_before"] = ["clarify"]
 
     return g.compile(**compile_kwargs)
 
 
-def build_v8_optimized_graph_with_memory(
-    interrupt_on_clarify: bool = True,
-    use_multi_agent: bool = True,
-):
-    """
-    Build optimized v8 graph with in-memory checkpointer.
-
-    Returns:
-        Tuple of (compiled_graph, checkpointer)
-    """
+def build_v8_optimized_graph_with_memory(interrupt_on_clarify: bool = True, use_multi_agent: bool = True):
+    """Build optimized v8 graph with checkpointer for HITL."""
     checkpointer = MemorySaver()
     graph = build_v8_optimized_graph(
         checkpointer=checkpointer,
@@ -727,13 +371,7 @@ def build_v8_optimized_graph_with_memory(
 
 
 def build_v8_optimized_simple_graph(use_multi_agent: bool = True):
-    """
-    Build optimized v8 graph without human-in-the-loop.
-
-    Use this for automated pipelines with maximum optimization.
-    """
+    """Build optimized v8 graph without HITL (automated mode)."""
     return build_v8_optimized_graph(
-        checkpointer=None,
-        interrupt_on_clarify=False,
-        use_multi_agent=use_multi_agent,
+        checkpointer=None, interrupt_on_clarify=False, use_multi_agent=use_multi_agent,
     )

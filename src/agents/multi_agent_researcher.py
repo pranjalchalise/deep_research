@@ -1,34 +1,6 @@
 """
-Multi-Agent Deep Research - Anthropic Style Orchestrator-Workers Pattern
-
-Architecture:
-┌─────────────────────────────────────────────────────────────────────────┐
-│                         ORCHESTRATOR                                     │
-│  "Break this research into independent sub-questions"                   │
-└─────────────────────────────────────────────────────────────────────────┘
-                                    │
-                    ┌───────────────┼───────────────┐
-                    │               │               │
-                    ▼               ▼               ▼
-             ┌──────────┐    ┌──────────┐    ┌──────────┐
-             │ WORKER 1 │    │ WORKER 2 │    │ WORKER 3 │
-             │ Sub-Q A  │    │ Sub-Q B  │    │ Sub-Q C  │
-             └────┬─────┘    └────┬─────┘    └────┬─────┘
-                  │               │               │
-                  │   (PARALLEL)  │               │
-                  └───────────────┼───────────────┘
-                                  │
-                                  ▼
-┌─────────────────────────────────────────────────────────────────────────┐
-│                         SYNTHESIZER                                      │
-│  "Combine findings, resolve conflicts, identify remaining gaps"          │
-└─────────────────────────────────────────────────────────────────────────┘
-
-Benefits over single-agent:
-- Parallel execution = faster research
-- Specialized focus = deeper coverage per topic
-- Independent workers = no context pollution
-- Better gap detection = each worker reports its own gaps
+Multi-agent research using an orchestrator-workers pattern for parallel execution.
+Workers research sub-questions independently, then findings are synthesized into a report.
 """
 from __future__ import annotations
 
@@ -45,10 +17,6 @@ from src.utils.json_utils import parse_json_object, parse_json_array
 from src.tools.tavily import cached_search
 from src.tools.http_fetch import fetch_and_chunk
 
-
-# =============================================================================
-# PROMPTS
-# =============================================================================
 
 ORCHESTRATE_PROMPT = """You are a research orchestrator. Break down this research query into independent sub-questions that can be researched in parallel.
 
@@ -162,10 +130,6 @@ Write a well-structured report.
 """
 
 
-# =============================================================================
-# DATA STRUCTURES
-# =============================================================================
-
 @dataclass
 class WorkerTask:
     """A task assigned to a worker."""
@@ -194,8 +158,8 @@ class Metrics:
     """Performance metrics for comparison."""
     total_time: float = 0.0
     orchestration_time: float = 0.0
-    parallel_research_time: float = 0.0  # Wall clock time for parallel workers
-    total_worker_time: float = 0.0  # Sum of all worker times (would be sequential time)
+    parallel_research_time: float = 0.0
+    total_worker_time: float = 0.0
     synthesis_time: float = 0.0
     verification_time: float = 0.0
     writing_time: float = 0.0
@@ -208,20 +172,12 @@ class Metrics:
     coverage: float = 0.0
     confidence: float = 0.0
 
-    # Optimization calculation
-    sequential_estimate: float = 0.0  # Estimated time if run sequentially
-    speedup_factor: float = 1.0  # How much faster than sequential
+    sequential_estimate: float = 0.0
+    speedup_factor: float = 1.0
 
-
-# =============================================================================
-# WORKER CLASS
-# =============================================================================
 
 class ResearchWorker:
-    """
-    A single research worker that focuses on one sub-question.
-    Runs independently and returns its findings.
-    """
+    """Independent worker that researches a single sub-question."""
 
     def __init__(
         self,
@@ -256,7 +212,6 @@ class ResearchWorker:
 
         self._log(f"Starting: {self.task.question[:50]}...")
 
-        # Search and extract
         for query in self.task.search_queries[:3]:
             self._log(f"Searching: {query[:40]}...")
 
@@ -283,7 +238,6 @@ class ResearchWorker:
                     "source_id": len(self.sources) + 1
                 }
 
-                # Fetch
                 chunks = fetch_and_chunk(
                     url=url,
                     chunk_chars=3000,
@@ -296,7 +250,6 @@ class ResearchWorker:
                 if not chunks:
                     continue
 
-                # Extract (focused on this worker's question)
                 content = "\n".join(chunks[:2])
 
                 response = self.fast_llm.invoke([
@@ -321,7 +274,6 @@ class ResearchWorker:
                             "worker_id": self.worker_id
                         })
 
-        # Summarize findings
         evidence_text = "\n".join([
             f"- {e['fact']}" for e in self.evidence
         ]) if self.evidence else "No evidence found."
@@ -358,20 +310,8 @@ class ResearchWorker:
         )
 
 
-# =============================================================================
-# MULTI-AGENT ORCHESTRATOR
-# =============================================================================
-
 class MultiAgentResearcher:
-    """
-    Anthropic-style multi-agent research orchestrator.
-
-    1. Orchestrator breaks query into sub-questions
-    2. Workers research in parallel
-    3. Synthesizer combines findings
-    4. Gap detection and optional re-research
-    5. Final report generation
-    """
+    """Orchestrator-workers research agent that parallelizes sub-questions for faster, deeper coverage."""
 
     def __init__(
         self,
@@ -433,10 +373,6 @@ class MultiAgentResearcher:
                 return opt
         return response
 
-    # =========================================================================
-    # PHASE 1: UNDERSTAND (reuse from single-agent)
-    # =========================================================================
-
     def _understand_and_clarify(self, query: str) -> tuple[str, str]:
         """Understand query and clarify if needed. Returns (query, user_clarification)."""
         from src.agents.deep_researcher import UNDERSTAND_PROMPT
@@ -460,10 +396,6 @@ class MultiAgentResearcher:
             return query, user_response
 
         return query, ""
-
-    # =========================================================================
-    # PHASE 2: ORCHESTRATE
-    # =========================================================================
 
     def _clarification_section(self, user_clarification: str) -> str:
         """Build clarification section for prompts."""
@@ -505,10 +437,6 @@ class MultiAgentResearcher:
 
         return tasks
 
-    # =========================================================================
-    # PHASE 3: PARALLEL WORKERS
-    # =========================================================================
-
     def _run_workers_parallel(self, tasks: List[WorkerTask]) -> List[WorkerResult]:
         """Run all workers in parallel."""
         self._log(f"Launching {len(tasks)} parallel workers...", "WORKERS")
@@ -516,9 +444,7 @@ class MultiAgentResearcher:
         start = time.time()
         results = []
 
-        # Use ThreadPoolExecutor for parallel execution
         with concurrent.futures.ThreadPoolExecutor(max_workers=len(tasks)) as executor:
-            # Submit all workers
             future_to_task = {}
             for i, task in enumerate(tasks):
                 worker = ResearchWorker(
@@ -534,7 +460,6 @@ class MultiAgentResearcher:
                 future = executor.submit(worker.research)
                 future_to_task[future] = task
 
-            # Collect results as they complete
             for future in concurrent.futures.as_completed(future_to_task):
                 try:
                     result = future.result()
@@ -550,17 +475,12 @@ class MultiAgentResearcher:
 
         return results
 
-    # =========================================================================
-    # PHASE 4: SYNTHESIZE
-    # =========================================================================
-
     def _synthesize(self, query: str, user_clarification: str, worker_results: List[WorkerResult]) -> Dict[str, Any]:
         """Synthesize findings from all workers."""
         self._log("Synthesizing worker findings...", "SYNTHESIZE")
 
         start = time.time()
 
-        # Format worker findings
         findings_text = ""
         for r in worker_results:
             findings_text += f"\n### {r.worker_id}: {r.question}\n"
@@ -591,10 +511,6 @@ class MultiAgentResearcher:
 
         return result
 
-    # =========================================================================
-    # PHASE 5: WRITE
-    # =========================================================================
-
     def _write_report(
         self,
         query: str,
@@ -607,7 +523,6 @@ class MultiAgentResearcher:
 
         start = time.time()
 
-        # Collect all evidence with IDs
         all_evidence = []
         all_sources = {}
         evidence_id = 1
@@ -625,7 +540,6 @@ class MultiAgentResearcher:
                     all_sources[url] = s
                     source_id += 1
 
-        # Format for prompt
         worker_summaries = ""
         for r in worker_results:
             worker_summaries += f"\n### {r.question}\n"
@@ -655,7 +569,6 @@ class MultiAgentResearcher:
 
         report = response.content
 
-        # Ensure sources section
         if "## Sources" not in report:
             report += "\n\n---\n\n## Sources\n\n"
             for s in all_sources.values():
@@ -667,16 +580,8 @@ class MultiAgentResearcher:
 
         return report
 
-    # =========================================================================
-    # MAIN RESEARCH METHOD
-    # =========================================================================
-
     def research(self, query: str) -> Dict[str, Any]:
-        """
-        Run multi-agent research.
-
-        Returns dict with report, metrics, and comparison data.
-        """
+        """Run multi-agent research and return dict with report, metrics, and comparison data."""
         total_start = time.time()
 
         self._log(f"\n{'='*60}", "")
@@ -686,37 +591,28 @@ class MultiAgentResearcher:
         self._log(f"Max workers: {self.max_workers}", "")
         self._log("-" * 60, "")
 
-        # Phase 1: Understand & Clarify
         original_query, user_clarification = self._understand_and_clarify(query)
 
-        # Phase 2: Orchestrate
         tasks = self._orchestrate(original_query, user_clarification)
 
         if not tasks:
             return {"report": "Failed to create research tasks", "metrics": self.metrics}
 
-        # Phase 3: Parallel Workers
         worker_results = self._run_workers_parallel(tasks)
 
-        # Phase 4: Synthesize
         synthesis = self._synthesize(original_query, user_clarification, worker_results)
 
-        # Check if more research needed (simplified - skip for now)
-
-        # Phase 5: Write
         report = self._write_report(original_query, user_clarification, worker_results, synthesis)
 
-        # Calculate metrics
         self.metrics.total_time = time.time() - total_start
         self.metrics.confidence = synthesis.get("overall_confidence", 0.5)
         self.metrics.total_searches = sum(
             len(t.search_queries) for t in tasks
         )
 
-        # Calculate speedup
         self.metrics.sequential_estimate = (
             self.metrics.orchestration_time +
-            self.metrics.total_worker_time +  # This is what sequential would take
+            self.metrics.total_worker_time +
             self.metrics.synthesis_time +
             self.metrics.writing_time
         )
@@ -724,7 +620,6 @@ class MultiAgentResearcher:
         if self.metrics.total_time > 0:
             self.metrics.speedup_factor = self.metrics.sequential_estimate / self.metrics.total_time
 
-        # Print summary
         self._log(f"\n{'='*60}", "")
         self._log("RESEARCH COMPLETE", "")
         self._log(f"{'='*60}", "")
@@ -772,19 +667,11 @@ class MultiAgentResearcher:
         }
 
 
-# =============================================================================
-# CONVENIENCE FUNCTION
-# =============================================================================
-
 def multi_agent_research(query: str, **kwargs) -> Dict[str, Any]:
     """Run multi-agent research on a query."""
     agent = MultiAgentResearcher(**kwargs)
     return agent.research(query)
 
-
-# =============================================================================
-# CLI
-# =============================================================================
 
 if __name__ == "__main__":
     import sys
