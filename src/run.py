@@ -1,18 +1,18 @@
 #!/usr/bin/env python3
 """
-CLI for the standard research pipeline.
+CLI for the standard research pipeline (LangGraph).
 
 Supports single-agent (iterative gap detection), multi-agent (parallel
-workers via LangGraph Send), human-in-the-loop clarification, and a
---compare mode that runs both and prints metrics side-by-side.
-
-For the advanced pipeline with trust engine, see run_advanced_trust_engine.py.
+workers via Send), human-in-the-loop clarification, and a --compare
+mode that runs both and prints metrics side-by-side.
 
 Examples:
     python -m src.run "What is quantum computing?"
     python -m src.run --single-agent "Compare React vs Vue"
     python -m src.run --compare "Latest AI developments"
+    python -m src.run --simple "Tell me about Python"
 """
+
 from __future__ import annotations
 
 import os
@@ -21,7 +21,6 @@ import time
 import uuid
 
 from dotenv import load_dotenv
-from langchain_core.messages import HumanMessage
 from langgraph.checkpoint.memory import MemorySaver
 
 from src.pipeline.graph import build_graph
@@ -125,47 +124,24 @@ def run_research(
     max_iterations: int = 5,
     verbose: bool = True,
     output_file: str | None = None,
-    model: str | None = None,
-    fast_model: str | None = None,
-    max_search_results: int | None = None,
-    report_structure: str | None = None,
-    system_prompt: str | None = None,
 ) -> tuple[dict, float]:
     """Run the research graph and return (final_state, elapsed_seconds)."""
     start = time.time()
-    init = {
-        "query": question,
-        "messages": [HumanMessage(content=question)],
-        **_default_state(mode=mode, max_iterations=max_iterations),
-    }
-
-    # Build the configurable dict from CLI overrides
-    configurable: dict = {}
-    if model:
-        configurable["model"] = model
-    if fast_model:
-        configurable["fast_model"] = fast_model
-    if max_search_results is not None:
-        configurable["max_search_results"] = max_search_results
-    if report_structure:
-        configurable["report_structure"] = report_structure
-    if system_prompt:
-        configurable["system_prompt"] = system_prompt
+    init = {"query": question, **_default_state(mode=mode, max_iterations=max_iterations)}
 
     if skip_clarification:
         # No checkpointer, no HITL pause — just run straight through
         graph = build_graph(checkpointer=None, interrupt_on_clarify=False)
         if verbose:
             print("\n[1/5] Analyzing query...")
-        run_config = {"configurable": configurable} if configurable else {}
-        result = graph.invoke(init, run_config)
+        result = graph.invoke(init)
 
     else:
         # With HITL: checkpointer so we can pause at clarify and resume
         checkpointer = MemorySaver()
         graph = build_graph(checkpointer=checkpointer, interrupt_on_clarify=True)
         thread_id = str(uuid.uuid4())
-        config = {"configurable": {"thread_id": thread_id, **configurable}}
+        config = {"configurable": {"thread_id": thread_id}}
 
         if verbose:
             print("\n[1/5] Analyzing query...")
@@ -255,24 +231,19 @@ Modes:
     --compare         Run both modes and compare metrics side-by-side
 
 Options:
-    --quiet, -q            Minimal output
-    --output FILE          Save report to file
-    -o FILE                Save report to file
-    --iterations N         Max research iterations (default: 5 single, 2 multi)
-    --model MODEL          LLM for planning/writing (default: gpt-4o)
-    --fast-model MODEL     LLM for extraction (default: gpt-4o-mini)
-    --max-results N        Tavily results per query (default: 5)
-    --format FORMAT        Report style: detailed|concise|bullet_points (default: detailed)
-    --system-prompt TEXT   Custom instructions prepended to the report writer
-    --help, -h             Show this help message
+    --simple, -s      Skip human clarification (auto-proceed)
+    --quiet, -q       Minimal output
+    --output FILE     Save report to file
+    -o FILE           Save report to file
+    --iterations N    Max research iterations (default: 5 single, 2 multi)
+    --help, -h        Show this help message
 
 Examples:
     python -m src.run "What is quantum computing?"
     python -m src.run --single-agent "Compare React vs Vue"
     python -m src.run --compare "Latest AI developments"
-    python -m src.run --single-agent --iterations 3 "Quantum computing"
-    python -m src.run --model gpt-4o-mini --format concise "Explain CRISPR"
-    python -m src.run --system-prompt "Write for a technical audience" "Rust vs Go"
+    python -m src.run --simple "Tell me about Python"
+    python -m src.run --simple --single-agent --iterations 3 "Quantum computing"
 """)
 
 
@@ -284,20 +255,25 @@ def main():
         sys.exit(1)
 
     args = sys.argv[1:]
+    skip_clarification = False
     verbose = True
     output_file = None
     mode = "multi"
     max_iterations = None
-    model = None
-    fast_model = None
-    max_search_results = None
-    report_structure = None
-    system_prompt = None
 
     # Parse flags
     if "--help" in args or "-h" in args:
         _print_help()
         return
+
+    flag_map = {
+        "--single-agent": lambda: None,  # handled below
+        "--compare": lambda: None,
+        "--simple": lambda: None,
+        "-s": lambda: None,
+        "--quiet": lambda: None,
+        "-q": lambda: None,
+    }
 
     if "--single-agent" in args:
         args.remove("--single-agent")
@@ -305,6 +281,12 @@ def main():
     if "--compare" in args:
         args.remove("--compare")
         mode = "compare"
+    if "--simple" in args:
+        args.remove("--simple")
+        skip_clarification = True
+    if "-s" in args:
+        args.remove("-s")
+        skip_clarification = True
     if "--quiet" in args:
         args.remove("--quiet")
         verbose = False
@@ -312,47 +294,22 @@ def main():
         args.remove("-q")
         verbose = False
 
-    # Helper to pop --flag VALUE pairs
-    def _pop_flag(flag_name: str) -> str | None:
-        if flag_name in args:
-            idx = args.index(flag_name)
-            if idx + 1 < len(args):
-                val = args[idx + 1]
-                args.pop(idx)
-                args.pop(idx)
-                return val
-        return None
-
-    # Parse --flag VALUE options
-    val = _pop_flag("--iterations")
-    if val is not None:
-        max_iterations = int(val)
-
-    val = _pop_flag("--model")
-    if val is not None:
-        model = val
-
-    val = _pop_flag("--fast-model")
-    if val is not None:
-        fast_model = val
-
-    val = _pop_flag("--max-results")
-    if val is not None:
-        max_search_results = int(val)
-
-    val = _pop_flag("--format")
-    if val is not None:
-        report_structure = val
-
-    val = _pop_flag("--system-prompt")
-    if val is not None:
-        system_prompt = val
+    # Parse --iterations N
+    if "--iterations" in args:
+        idx = args.index("--iterations")
+        if idx + 1 < len(args):
+            max_iterations = int(args[idx + 1])
+            args.pop(idx)
+            args.pop(idx)
 
     # Parse --output FILE / -o FILE
     for flag in ("--output", "-o"):
-        val = _pop_flag(flag)
-        if val is not None:
-            output_file = val
+        if flag in args:
+            idx = args.index(flag)
+            if idx + 1 < len(args):
+                output_file = args[idx + 1]
+                args.pop(idx)
+                args.pop(idx)
 
     # Whatever's left is the question
     if args:
@@ -371,15 +328,6 @@ def main():
         print(f"Mode: {mode.upper()}")
         print("-" * 60)
 
-    # Shared config kwargs for run_research
-    config_kwargs = dict(
-        model=model,
-        fast_model=fast_model,
-        max_search_results=max_search_results,
-        report_structure=report_structure,
-        system_prompt=system_prompt,
-    )
-
     if mode == "compare":
         s_iters = max_iterations or 5
         m_iters = max_iterations or 2
@@ -388,23 +336,22 @@ def main():
         print("-" * 60)
         s_result, s_time = run_research(
             question, mode="single", skip_clarification=True,
-            max_iterations=s_iters, verbose=verbose, **config_kwargs,
+            max_iterations=s_iters, verbose=verbose,
         )
 
         print("\n\n>>> Running MULTI-AGENT now...")
         print("-" * 60)
         m_result, m_time = run_research(
             question, mode="multi", skip_clarification=True,
-            max_iterations=m_iters, verbose=verbose, **config_kwargs,
+            max_iterations=m_iters, verbose=verbose,
         )
 
         _print_comparison(s_result, s_time, m_result, m_time)
     else:
         iters = max_iterations or (5 if mode == "single" else 2)
         run_research(
-            question, mode=mode, skip_clarification=False,
+            question, mode=mode, skip_clarification=skip_clarification,
             max_iterations=iters, verbose=verbose, output_file=output_file,
-            **config_kwargs,
         )
 
 

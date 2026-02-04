@@ -1,8 +1,0 @@
-{
-  "metadata": {
-    "key": "page:https://medium.com/@paramaggarwal/a-history-of-machine-learning-d91c37256c6c",
-    "created": 1769906972.776918,
-    "ttl": 604800
-  },
-  "data": "Member-only story A History of Machine Learning From Regression Models to Transformer Models Param Aggarwal 8 min read · Oct 5, 2024 -- Share Press enter or click to view image in full size Abstract Machine learning (ML) has evolved dramatically from its early foundations in statistical methods to the deep learning architectures we see today. This paper takes a historical perspective on the development of machine learning, diving into major eras that have shaped its landscape: from the classical regression models to convolutional neural networks (CNNs), long short-term memory (LSTMs), and the transformative impact of the attention mechanism with the rise of transformers. Each era is defined by its unique paradigm, challenges, and breakthroughs. The goal of this paper is to not only chronicle the development of machine learning but also build an intuitive understanding of the technical depth within each phase, from classical statistical models to the state-of-the-art architectures that dominate the landscape today. 1. Introduction Machine learning, at its core, is the science of making machines learn from data, enabling them to make decisions without being explicitly programmed for each specific task. While the concept of “learning” has its roots in centuries-old statistical methods, it has evolved through various stages — each phase characterized by new methods, challenges, and computational techniques. This paper…"
-}

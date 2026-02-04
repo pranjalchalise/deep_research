@@ -1,8 +1,0 @@
-{
-  "metadata": {
-    "key": "page:https://www.reddit.com/r/learnpython/comments/uco3d3/is_this_a_fair_criticism_of_python/",
-    "created": 1769878769.1270962,
-    "ttl": 604800
-  },
-  "data": "Go to learnpython r/learnpython • morecoffeemore Français Português (Brasil) Tiếng Việt 简体中文 Español (Latinoamérica) Svenska Türkçe Ελληνικά Magyar Română Nederlands ไทย Is this a fair criticism of python? I'm a beginner programmer and have done basic OOP intro courses in both Java and Python, and was wondering if the following is a fair criticism of python: Python allows a lot more flexibility than other programming languages like Java - there are a lot more ways to get something done when everything is an object, and it seems like you can pass anything to anything. This flexibility makes it difficult to read other peoples code - i'll look up someone's approach to a problem online and their approach will leave me scratching my head, because they have taken advantage of python's flexibility to do something in python I didn't even know could be done. This may seem like an advantage, but in languages which are les flexible there are fewer ways to approach a problem, and thus it's easier to read/understand others code. I don't want a million ways to approach a problem, because it takes more time to learn/understand all the capabilities of the language. When there are fewer capabilities to understand, because the language is more rigid, it takes less time to lean the language and other peoples code is easier to understand. Just my two cents. Is this a fair criticism? Read more Share"
-}

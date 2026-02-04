@@ -1,8 +1,0 @@
-{
-  "metadata": {
-    "key": "page:https://reactjs-bot.github.io/react/community/support.html",
-    "created": 1770092621.798232,
-    "ttl": 604800
-  },
-  "data": "Edit on GitHub Where To Get Support React is worked on full-time by Facebook's product infrastructure and Instagram's user interface engineering teams. They're often around and available for questions. Stack Overflow # Many members of the community use Stack Overflow to ask questions. Read through the existing questions tagged with reactjs or ask your own ! Discussion forum # For longer-form conversations about React, we've set up a discussion forum at discuss.reactjs.org . This forum is a great place for discussion about best practices and application architecture as well as the future of React. If you have an answerable code-level question, please post it to Stack Overflow instead. In the forum there's also a category for job posts and a category for discussion of our weekly meeting notes. Reactiflux Chat # If you need an answer right away, check out the Reactiflux Discord community. There are usually a number of React experts there who can help out or point you to somewhere you might want to look. Facebook and Twitter # For the latest news about React, like us on Facebook and follow @reactjs on Twitter . In addition, you can use the #reactjs hashtag to see what others are saying or add to the conversation. Community Resources Where To Get Support Conferences Videos Complementary Tools Examples"
-}

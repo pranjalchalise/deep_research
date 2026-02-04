@@ -1,7 +1,0 @@
-{
-  "python.defaultInterpreterPath": "/Users/pranjalchalise/Desktop/langchain/research-studio/.venv/bin/python",
-  "python.terminal.activateEnvironment": true,
-  "python.analysis.extraPaths": [
-    "/Users/pranjalchalise/Desktop/langchain/research-studio"
-  ]
-}

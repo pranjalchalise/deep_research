@@ -1,8 +1,0 @@
-{
-  "metadata": {
-    "key": "page:https://www.microsoft.com/en-us/research/people/hadong/",
-    "created": 1769904840.485472,
-    "ttl": 604800
-  },
-  "data": "Haoyu Dong Senior Researcher About I am Haoyu, a Senior Researcher at Microsoft Research and AI, specializing in LLMs for advancing table understanding and reasoning. My work spans both foundational research and practical applications in enterprise settings. Our paper Neural Formatting for Spreadsheet Tables was nominated for Best Full Research Paper at CIKM 2020, and our more recent project, SpreadsheetLLM , was featured as Hugging Face Paper of the Day ( 1st for the day (opens in new tab) , 2nd for the month (opens in new tab) ). I had the pleasure of co-founding the first Table Representation Learning (TRL) Workshop at NeurIPS (opens in new tab) in 2022 and have continued to co-organize it in 2023 and 2024. I also served on the steering committee for the Tabular Data Analysis (TaDA) workshop at VLDB’23. Recently, I co-presented a tutorial on “Large Language Models for Tabular Data” (opens in new tab) at the SIGIR’24 conference and gave a keynote on “Spreadsheet Intelligence and Tabular Data Analytics” at the VLDB’2024 TaDA workshop. Opens in a new tab"
-}
