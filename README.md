@@ -1,13 +1,30 @@
 # Research Studio
 
-A LangGraph-powered deep research agent that accepts a query, searches the web, and returns a grounded report with citations.
+A deep research agent built on [LangGraph](https://langchain-ai.github.io/langgraph/). Give it a question, it searches the web, reads pages, extracts facts, verifies them, and writes a grounded report with inline citations.
 
-Two pipelines are included:
+There are two pipelines:
 
-- **Standard pipeline** (`src/pipeline/`) -- clean, self-contained research graph with single-agent and multi-agent modes.
-- **Advanced pipeline** (`src/advanced/`) -- adds a trust engine (source credibility scoring, span verification, cross-validation, confidence indicators) on top of the standard flow.
+- **Standard pipeline** (`src/pipeline/`) -- a clean, self-contained research graph with single-agent and multi-agent modes. Handles most queries well and is the easiest to understand and extend.
+- **Advanced pipeline** (`src/advanced/`) -- adds a trust engine on top: source credibility scoring, claim extraction, span-level verification, cross-validation, and per-claim confidence indicators. More rigorous, but slower and more expensive.
 
-Both pipelines use [Tavily](https://tavily.com/) for web search and OpenAI models for planning, extraction, and report generation.
+Both pipelines are registered in `langgraph.json` and work out of the box with [LangGraph Studio](https://github.com/langchain-ai/langgraph-studio).
+
+## How it works
+
+### Standard pipeline
+
+The standard pipeline supports two research modes, chosen at runtime:
+
+- **Single-agent**: iterative search loop with gap detection. Searches, extracts facts, checks what's missing, searches again until coverage is good enough or the iteration cap is hit.
+- **Multi-agent**: breaks the query into independent sub-questions, fans out parallel workers via LangGraph's `Send()`, collects and synthesizes results, then writes.
+
+![Standard Pipeline Architecture](docs/standard_pipeline.png)
+
+### Advanced pipeline
+
+The advanced pipeline follows the same core flow but adds a trust engine between extraction and writing -- 7 specialized nodes (or 2 in batched mode) that score source credibility, extract claims, map citations, verify spans against source text, cross-validate across sources, and assign per-claim confidence scores.
+
+![Advanced Pipeline Architecture](docs/advanced_pipeline.png)
 
 ## Setup
 
@@ -19,22 +36,22 @@ cd research-studio
 pip install -e ".[extract]"
 ```
 
-The `[extract]` extra installs `trafilatura` and `beautifulsoup4` for better HTML text extraction. The agent works without them (falls back to regex), but results are noticeably better with them.
+The `[extract]` extra pulls in `trafilatura` and `beautifulsoup4` for better HTML text extraction. The agent works without them (falls back to regex), but results are noticeably better with them.
 
 ### 2. Environment variables
-
-Copy the example and fill in your keys:
 
 ```bash
 cp .env.example .env
 ```
 
-Required:
-- `OPENAI_API_KEY` -- for LLM calls (GPT-4o and GPT-4o-mini)
-- `TAVILY_API_KEY` -- for web search
+Fill in:
 
-Optional:
-- `LANGCHAIN_TRACING_V2=true` + `LANGCHAIN_API_KEY` -- enables LangSmith tracing
+| Variable | Required | What it's for |
+|----------|----------|---------------|
+| `OPENAI_API_KEY` | Yes | LLM calls (GPT-4o, GPT-4o-mini) |
+| `TAVILY_API_KEY` | Yes | Web search |
+| `LANGCHAIN_TRACING_V2` | No | Set to `true` for LangSmith tracing |
+| `LANGCHAIN_API_KEY` | No | Required if tracing is enabled |
 
 ### 3. Run
 
@@ -66,135 +83,130 @@ Both graphs are registered in `langgraph.json`:
 langgraph dev
 ```
 
-This exposes two graphs:
+This opens two graphs in Studio:
 - `pipeline` -- the standard research graph
 - `advanced` -- the trust engine graph
 
-## Architecture
+You can interact with either graph visually, inspect state at each node, and use the configuration knobs (model selection, report format, etc.) directly from the Studio UI.
 
-### Standard Pipeline (`src/pipeline/`)
+## CLI options
 
-```
-START -> understand -> [clarify?] -> plan
-                                       |
-                    +------------------+------------------+
-                    |                                     |
-              (single-agent)                       (multi-agent)
-                    |                                     |
-           search_and_extract                       orchestrate
-                    |                                     |
-             detect_gaps ←──loop──┐              fanout (Send) -> workers
-                    |             |                        |
-                    v             |                    collect
-                  verify ←────────┘                       |
-                    |                                synthesize ←──loop
-                    v                                     |
-              write_report                             verify
-                    |                                     |
-                   END                              write_report
-                                                         |
-                                                        END
-```
-
-**Key design choices:**
-- `messages` field (via `MessagesState`) stores user query as `HumanMessage` and final report as `AIMessage`
-- `operator.add` on `evidence`, `worker_results`, `done_workers` for safe parallel accumulation
-- `interrupt_before=["clarify"]` for human-in-the-loop disambiguation
-- Gap detection loop re-searches until coverage threshold is met or iteration cap is hit
-
-### Advanced Pipeline (`src/advanced/`)
-
-Adds on top of the standard flow:
-- **Discovery phase**: entity detection, query classification, confidence-gated clarification
-- **Trust engine** (7 nodes): credibility scoring -> ranking -> claim extraction -> citation mapping -> span verification -> cross-validation -> confidence scoring
-- **Batched variant**: same trust pipeline in 2 LLM calls instead of 7 (60% fewer API calls)
-- **Dead-end backtracking**: when a search path yields nothing, tries a different angle
-- **Complexity routing**: simple queries skip multi-agent overhead
-
-## Project Structure
-
-```
-research-studio/
-├── src/
-│   ├── run.py                          # CLI: standard pipeline
-│   ├── run_advanced_trust_engine.py    # CLI: advanced pipeline
-│   ├── pipeline/                       # Standard pipeline (self-contained)
-│   │   ├── state.py                    #   ResearchState (extends MessagesState)
-│   │   ├── prompts.py                  #   All LLM prompts
-│   │   ├── nodes.py                    #   All node functions
-│   │   └── graph.py                    #   build_graph(), routing, compiled graph
-│   ├── advanced/                       # Advanced pipeline (self-contained)
-│   │   ├── config.py                   #   ResearchConfig (model routing, thresholds)
-│   │   ├── state.py                    #   AgentState (extends MessagesState)
-│   │   ├── graph.py                    #   Graph builders, compiled graph
-│   │   └── nodes/                      #   13 node modules
-│   ├── tools/                          # Shared: Tavily search, HTTP fetch
-│   └── utils/                          # Shared: LLM wrappers, caching, JSON parsing
-├── langgraph.json                      # LangGraph Studio config
-├── pyproject.toml                      # Dependencies
-└── .env.example                        # Required environment variables
-```
-
-## Configuration
-
-### Standard pipeline (CLI flags)
-
-The standard pipeline accepts configuration via CLI flags or `config={"configurable": {...}}`:
-
-| Flag | Config key | Default | Description |
-|------|------------|---------|-------------|
-| `--model` | `model` | `gpt-4o` | LLM for planning, synthesis, writing |
-| `--fast-model` | `fast_model` | `gpt-4o-mini` | LLM for bulk extraction |
-| `--max-results` | `max_search_results` | `5` | Tavily results per query |
-| `--format` | `report_structure` | `detailed` | `detailed`, `concise`, or `bullet_points` |
-| `--system-prompt` | `system_prompt` | *(none)* | Custom instructions prepended to the report writer |
-| `--iterations` | `max_iterations` | `5` (single) / `2` (multi) | Max research loop iterations (state field) |
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--single-agent` | off | Use iterative single-agent mode instead of multi-agent |
+| `--compare` | off | Run both modes and show side-by-side comparison |
+| `--model` | `gpt-4o` | Main LLM for planning, synthesis, and writing |
+| `--fast-model` | `gpt-4o-mini` | Fast LLM for bulk extraction |
+| `--max-results` | `5` | Tavily results per search query |
+| `--format` | `detailed` | Report format: `detailed`, `concise`, or `bullet_points` |
+| `--system-prompt` | none | Custom instructions prepended to the report writer |
+| `--iterations` | `5` / `2` | Max search loop iterations (single / multi) |
+| `--output` | none | Save the report to a file |
 
 Examples:
 
 ```bash
-# Use a cheaper model for the whole pipeline
-python -m src.run --model gpt-4o-mini "Explain CRISPR"
-
-# Get a bullet-point summary instead of a full report
-python -m src.run --format bullet_points "Latest AI developments"
+# Bullet-point summary with fewer search results
+python -m src.run --format bullet_points --max-results 3 "What is quantum computing?"
 
 # Custom writing instructions
 python -m src.run --system-prompt "Write for a technical audience" "Rust vs Go"
 
-# Fewer search results for faster/cheaper runs
-python -m src.run --max-results 3 --format concise "What is quantum computing?"
+# Save output
+python -m src.run --output report.md "Explain CRISPR"
 ```
 
-When invoking the graph programmatically, pass config keys via `configurable`:
+## Project structure
 
-```python
-from src.pipeline.graph import build_graph
-
-graph = build_graph()
-result = graph.invoke(
-    {
-        "query": "Compare React and Vue",
-        "messages": [HumanMessage(content="Compare React and Vue")],
-        "mode": "multi",
-        # ... other required state fields
-    },
-    config={"configurable": {
-        "model": "gpt-4o",
-        "fast_model": "gpt-4o-mini",
-        "max_search_results": 5,
-        "report_structure": "detailed",
-        "system_prompt": "Focus on developer experience",
-    }},
-)
+```
+research-studio/
+├── src/
+│   ├── run.py                          # CLI entry point (standard pipeline)
+│   ├── run_advanced_trust_engine.py    # CLI entry point (advanced pipeline)
+│   ├── pipeline/                       # Standard pipeline
+│   │   ├── state.py                    #   ResearchState (extends MessagesState)
+│   │   ├── prompts.py                  #   All LLM prompts
+│   │   ├── nodes.py                    #   Node functions (11 nodes)
+│   │   └── graph.py                    #   Graph builder, routing, compiled graph
+│   ├── advanced/                       # Advanced pipeline
+│   │   ├── config.py                   #   ResearchConfig (frozen dataclass, ~50 tunables)
+│   │   ├── state.py                    #   AgentState (extends MessagesState, ~60 fields)
+│   │   ├── graph.py                    #   Multiple graph variants
+│   │   └── nodes/                      #   13 node modules
+│   │       ├── discovery.py            #     Entity detection, query classification
+│   │       ├── planner.py              #     Research planning
+│   │       ├── search_worker.py        #     Web search + extraction
+│   │       ├── orchestrator.py         #     Multi-agent orchestration
+│   │       ├── claims.py               #     Claim extraction
+│   │       ├── cite.py                 #     Citation mapping
+│   │       ├── ranker.py               #     Source credibility scoring
+│   │       ├── trust_engine.py         #     Full trust pipeline (7 nodes)
+│   │       ├── trust_engine_batched.py #     Batched trust pipeline (2 LLM calls)
+│   │       ├── iterative.py            #     Gap detection, dead-end backtracking
+│   │       ├── reducer.py              #     Result collection
+│   │       └── writer.py              #     Report generation
+│   ├── tools/                          # Tavily search, HTTP fetch
+│   └── utils/                          # LLM wrappers, caching, JSON parsing, scoring
+├── tests/
+│   ├── eval_cases.py                   # Test case definitions
+│   ├── conftest.py                     # Pipeline runner, mock state builder, snapshots
+│   ├── run_eval.py                     # Main eval runner
+│   ├── evaluators/
+│   │   ├── structural.py              # 10 deterministic checks
+│   │   ├── llm_judge.py               # 5 LLM-as-judge evaluators
+│   │   └── behavioral.py             # 7 behavioral tests
+│   ├── test_structural.py             # pytest wrapper for structural checks
+│   ├── test_llm_judge.py              # pytest wrapper for LLM judge
+│   └── test_behavioral.py            # pytest wrapper for behavioral tests
+├── langgraph.json                      # LangGraph Studio configuration
+├── pyproject.toml                      # Dependencies and project metadata
+├── requirements.txt                    # Pinned dependencies
+├── DESIGN.md                           # Detailed design document
+└── .env.example                        # Environment variable template
 ```
 
-### Advanced pipeline (`ResearchConfig`)
+## Evaluation suite
 
-The advanced pipeline exposes `ResearchConfig` with tunables for:
-- Model routing per node (which model handles planning vs extraction vs writing)
-- Iteration limits and confidence thresholds
-- Source credibility thresholds
-- Query deduplication sensitivity
-- Cost budgets for early termination
-- Cache settings
+The project includes a 3-layer evaluation framework:
+
+**Structural checks** (no API calls needed): report length, citation format, evidence count, source coverage, JSON schema validation, and more. 10 deterministic checks that run instantly.
+
+**LLM-as-judge** (requires API calls): uses a strong model to assess relevance, groundedness, completeness, quality, and citation faithfulness. Each evaluator uses Pydantic structured output for reliable scoring.
+
+**Behavioral tests**: state consistency, verified claims ratio, ambiguity detection accuracy, and more. Tests both offline (mock state) and online (live pipeline) scenarios.
+
+```bash
+# Quick offline run (mock states, structural only)
+python -m tests.run_eval --offline
+
+# Full run against live pipeline
+python -m tests.run_eval --live
+
+# Run specific cases
+python -m tests.run_eval --live --cases factual_simple broad_comparison
+
+# Skip expensive LLM judge
+python -m tests.run_eval --live --skip-llm-judge
+
+# Save results
+python -m tests.run_eval --live --output results.json
+```
+
+## LangGraph features used
+
+This project uses several LangGraph features beyond basic graph construction:
+
+- **`MessagesState`** inheritance for chat-compatible state
+- **`operator.add`** reducers for safe parallel state accumulation
+- **`Send()`** for dynamic fan-out to parallel workers
+- **`interrupt_before`** + `MemorySaver` for human-in-the-loop query clarification
+- **Conditional edges** for routing (single vs multi-agent, gap detection loops, dead-end backtracking)
+- **Graph cycles** for iterative refinement (search -> extract -> check gaps -> search again)
+- **`RunnableConfig["configurable"]`** with `context_schema` for LangGraph Studio knobs
+- **Multiple compiled graph variants** from the same node functions
+
+See [DESIGN.md](./DESIGN.md) for a detailed walkthrough of every node, edge, and design decision.
+
+## License
+
+MIT
