@@ -211,10 +211,12 @@ SOURCES:
 
 IMPORTANT RULES:
 1. ONLY include information that appears in the evidence above
-2. EVERY factual claim must have a citation [1], [2], etc.
-3. If evidence is contradictory, acknowledge both perspectives
-4. If evidence is insufficient for some aspect, acknowledge the limitation
-5. Be comprehensive but don't make things up
+2. EVERY factual claim must have a citation using the source numbers shown in SOURCES above (e.g. [1], [2])
+3. ONLY use citation numbers that appear in the SOURCES list. Do NOT invent new numbers.
+4. Each piece of evidence is labeled with its source number — use that number as the citation.
+5. If evidence is contradictory, acknowledge both perspectives
+6. If evidence is insufficient for some aspect, acknowledge the limitation
+7. Be comprehensive but don't make things up
 
 Write in a professional, informative tone.
 """
@@ -371,7 +373,9 @@ SOURCES:
 
 Rules:
 1. Organize by themes/topics, not by worker
-2. Every claim needs a citation [1], [2], etc.
-3. Note any conflicting information
-4. Acknowledge gaps
+2. Every claim needs a citation using the source numbers from SOURCES above (e.g. [1], [2])
+3. ONLY use citation numbers that appear in the SOURCES list. Do NOT invent new numbers.
+4. Each piece of evidence is labeled with its source number — use that number as the citation.
+5. Note any conflicting information
+6. Acknowledge gaps
 """

@@ -598,11 +598,22 @@ def write_report_node(state: ResearchState, config: RunnableConfig) -> Dict[str,
             "metadata": {"sources_count": 0, "evidence_count": 0},
         }
 
+    # Build a lookup from source URL to source ID so evidence references
+    # use the same numbering as the sources list. This prevents the LLM
+    # from hallucinating citation numbers that don't exist.
+    url_to_sid = {}
+    for url, s in sources.items():
+        url_to_sid[url] = s.get("source_id", 0)
+
+    # Group evidence by source so the writer sees which facts came from where
     evidence_text = "\n".join(
-        f"[{i+1}] {e.get('fact', '')}\n   Quote: \"{e.get('quote', '')}\"\n   Source: {e.get('source_title', 'unknown')}"
-        for i, e in enumerate(evidence_list)
+        f"[Source {url_to_sid.get(e.get('source_url', ''), '?')}] "
+        f"{e.get('fact', '')}\n   Quote: \"{e.get('quote', '')}\"\n   "
+        f"Source: {e.get('source_title', 'unknown')}"
+        for e in evidence_list
     )
 
+    valid_ids = sorted(set(url_to_sid.values()))
     sources_text = "\n".join(
         f"[{s.get('source_id', i+1)}] {s.get('title', 'Unknown')}\n   URL: {s.get('url', '')}"
         for i, (url, s) in enumerate(sources.items())
@@ -613,7 +624,11 @@ def write_report_node(state: ResearchState, config: RunnableConfig) -> Dict[str,
     structure_instruction = get_structure_instruction(report_structure)
     custom_prompt = conf["system_prompt"]
 
-    base_system = "Write a comprehensive research report. Every claim must have a citation."
+    base_system = (
+        "Write a comprehensive research report. Every claim must have a citation.\n"
+        f"VALID CITATION NUMBERS: {valid_ids}. ONLY use these numbers in your "
+        "citations. Do NOT invent citation numbers outside this list."
+    )
     if custom_prompt:
         base_system += f"\n\nADDITIONAL INSTRUCTIONS FROM USER:\n{custom_prompt}"
 
