@@ -18,13 +18,103 @@ The standard pipeline supports two research modes, chosen at runtime:
 - **Single-agent**: iterative search loop with gap detection. Searches, extracts facts, checks what's missing, searches again until coverage is good enough or the iteration cap is hit.
 - **Multi-agent**: breaks the query into independent sub-questions, fans out parallel workers via LangGraph's `Send()`, collects and synthesizes results, then writes.
 
-![Standard Pipeline Architecture](docs/standard_pipeline.png)
+```mermaid
+graph TD
+    START((START)) --> understand
+
+    understand --> ambig{ambiguous?}
+    ambig -->|yes| clarify
+    ambig -->|no| plan
+    clarify -->|HITL: user answers| plan
+
+    plan --> mode{mode?}
+
+    %% Single-agent path
+    mode -->|single| search_and_extract
+    search_and_extract --> detect_gaps
+    detect_gaps -->|gaps remain| search_and_extract
+    detect_gaps -->|ready| verify
+
+    %% Multi-agent path
+    mode -->|multi| orchestrate
+    orchestrate -->|"Send() fan-out"| worker1[search_worker 1]
+    orchestrate -->|"Send() fan-out"| worker2[search_worker 2]
+    orchestrate -->|"Send() fan-out"| worker3[search_worker 3]
+    worker1 --> collect
+    worker2 --> collect
+    worker3 --> collect
+    collect --> synthesize
+    synthesize -->|needs more research| orchestrate
+    synthesize -->|done| verify
+
+    verify --> write_report
+    write_report --> END((END))
+
+    classDef shared fill:#3b82f6,stroke:none,color:#fff
+    classDef single fill:#8b5cf6,stroke:none,color:#fff
+    classDef multi fill:#10b981,stroke:none,color:#fff
+    classDef startend fill:#1a1a2e,stroke:none,color:#fff
+
+    class understand,plan,clarify,verify,write_report shared
+    class search_and_extract,detect_gaps single
+    class orchestrate,worker1,worker2,worker3,collect,synthesize multi
+    class START,END startend
+```
 
 ### Advanced pipeline
 
 The advanced pipeline follows the same core flow but adds a trust engine between extraction and writing -- 7 specialized nodes (or 2 in batched mode) that score source credibility, extract claims, map citations, verify spans against source text, cross-validate across sources, and assign per-claim confidence scores.
 
-![Advanced Pipeline Architecture](docs/advanced_pipeline.png)
+```mermaid
+graph TD
+    START((START)) --> analyzer
+    analyzer --> discovery
+    discovery --> conf{confidence?}
+
+    conf -->|low| clarify
+    conf -->|medium| auto_refine
+    conf -->|high| planner
+    clarify -->|HITL: user answers| planner
+    auto_refine --> planner
+
+    planner --> orchestrator
+    orchestrator -->|"Send() fan-out"| sub1[subagent 1]
+    orchestrator -->|"Send() fan-out"| sub2[subagent 2]
+    orchestrator -->|"Send() fan-out"| sub3[subagent 3]
+    sub1 --> synthesizer
+    sub2 --> synthesizer
+    sub3 --> synthesizer
+
+    synthesizer --> gap_detector
+    gap_detector -->|gaps found| orchestrator
+    gap_detector -->|dead end| backtrack
+    backtrack --> orchestrator
+    gap_detector -->|ready| reduce
+
+    reduce --> credibility
+    credibility --> ranker
+    ranker --> claims
+    claims --> cite
+    cite --> span_verify
+    span_verify --> cross_validate
+    cross_validate --> confidence_score
+    confidence_score --> write
+    write --> END((END))
+
+    classDef discovery fill:#6366f1,stroke:none,color:#fff
+    classDef shared fill:#3b82f6,stroke:none,color:#fff
+    classDef multi fill:#10b981,stroke:none,color:#fff
+    classDef iterative fill:#ef4444,stroke:none,color:#fff
+    classDef trust fill:#f59e0b,stroke:none,color:#fff
+    classDef startend fill:#1a1a2e,stroke:none,color:#fff
+
+    class analyzer,discovery,clarify,auto_refine discovery
+    class planner,reduce,write shared
+    class orchestrator,sub1,sub2,sub3,synthesizer multi
+    class gap_detector,backtrack iterative
+    class credibility,ranker,claims,cite,span_verify,cross_validate,confidence_score trust
+    class START,END startend
+```
 
 ## Setup
 
